@@ -122,9 +122,9 @@ const MD={
   dinner:{time:'7:00 PM',name:'Dinner',cal:482,pro:52,carb:37,fat:14,color:'#7B5EA7',
     items:['Chicken breast cooked \u2014 150g','Sweet potato baked \u2014 150g','Broccoli \u2014 100g','Olive oil \u2014 8g'],
     note:'Rest day dinner. Less carbs, solid protein for overnight muscle repair.'},
-  restsnack:{time:'3:30 PM',name:'Afternoon Snack',cal:315,pro:20,carb:31,fat:14,color:'#7B5EA7',
-    items:['Full-fat cottage cheese \u2014 150g','Banana \u2014 100g','Almond butter \u2014 16g'],
-    note:'Bridges the 12pm\u20137pm gap. Cottage cheese is high in leucine \u2014 keeps MPS elevated on rest days without the pre-workout carb load.'}
+  restsnack:{time:'3:30 PM',name:'Protein Bridge',cal:78,pro:16,carb:1,fat:0,color:'#7B5EA7',
+    items:['Egg whites liquid \u2014 150g'],
+    note:'Minimal calories, pure protein hit. Closes the 7-hour gap between lunch and dinner without adding meaningful calories to your rest day total. Already in your meal prep from the pre-workout batch.'}
 };
 const TM=['breakfast','midmorning','lunch','preworkout','shake'];
 const RM=['breakfast','midmorning','lunch','restsnack','dinner'];
@@ -318,7 +318,7 @@ function rEat(){
       +'<span style="font-size:7px;color:'+(st.eatDay===i?'rgba(255,255,255,.8)':DIM)+'">'+d.l+'</span></button>').join('')+'</div>'
     +'<div class="card" style="border-top:2px solid '+dc.c+'">'
     +'<div class="rb" style="margin-bottom:10px"><div><div class="h1" style="font-size:26px;color:'+TXT+'">'+dc.d+' \u2014 '+dc.l+'</div>'
-    +'<div style="font-size:9px;color:'+dc.c+';font-weight:700;letter-spacing:.1em;margin-top:3px">'+(dc.t==='training'?'TRAINING DAY \u00b7 5 MEALS':dc.t==='cardio'?'CARDIO DAY \u00b7 4 MEALS':'REST DAY \u00b7 4 MEALS')+'</div></div></div>'
+    +'<div style="font-size:9px;color:'+dc.c+';font-weight:700;letter-spacing:.1em;margin-top:3px">'+(dc.t==='training'?'TRAINING DAY \u00b7 5 MEALS':dc.t==='cardio'?'CARDIO DAY \u00b7 5 MEALS':'REST DAY \u00b7 5 MEALS')+'</div></div></div>'
     +'<div class="rb">'
     +[{l:'KCAL',v:tc,c:dc.c},{l:'PRO',v:tp+'g',c:'#E05C1A'},{l:'CARB',v:tcarb+'g',c:'#5C9900'},{l:'FAT',v:tf+'g',c:'#D98800'}].map(x=>'<div style="text-align:center"><div class="h1" style="font-size:20px;color:'+x.c+'">'+x.v+'</div><div style="font-size:8px;color:'+DIM+';font-weight:700;letter-spacing:.1em">'+x.l+'</div></div>').join('')+'</div>'
     +(dc.t!=='training'?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid '+BDR+';font-size:10px;color:'+DIM+';line-height:1.6">'+(dc.t==='cardio'?'No pre-workout carb load. Snack + lighter dinner instead of shake \u2014 still hits ~2,330 kcal.':'No pre-workout, no shake. Snack + lighter dinner keeps you at ~2,330 kcal with protein spread every 3\u20134 hrs.')+'</div>':'')+'</div>'

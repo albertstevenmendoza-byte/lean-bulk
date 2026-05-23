@@ -114,11 +114,29 @@ const MD={
 const TM=['breakfast','midmorning','lunch','preworkout','shake'];
 const RM=['breakfast','midmorning','lunch','dinner'];
 
+const SHAKES=[
+  {name:'Double Punch',tag:'Whey + Casein',best:'Any post-workout',timing:'Within 30 min',cal:780,pro:48,carb:42,fat:22,color:'#C8F135',
+   science:'Fast whey hits muscles immediately. Slow casein keeps amino acids flowing for hours. NCAA and pro cycling team-backed combination.',
+   items:['Whole milk — 488g','Whey protein powder — 35g','Rolled oats dry — 30g','Ice — 5 cubes']},
+  {name:'Anti-Inflame',tag:'Tart Cherry + Protein',best:'Heavy leg or HIIT day',timing:'Within 45 min',cal:680,pro:42,carb:38,fat:18,color:'#FF5C8A',
+   science:'2021 systematic review: tart cherry supplementation linked to reduced muscle soreness and faster recovery of strength after intense exercise.',
+   items:['Tart cherry juice — 240g','Whole milk — 244g','Whey protein powder — 35g','Natural almond butter — 32g','Ice — 5 cubes']},
+  {name:'Strength Builder',tag:'Creatine + Protein',best:'Strength and power days',timing:'Within 30 min',cal:785,pro:48,carb:42,fat:22,color:'#38C4FF',
+   science:'Creatine is the single most proven muscle supplement. Dozens of studies confirm gains in mass, strength, and recovery. Non-negotiable add.',
+   items:['Whole milk — 488g','Whey protein powder — 35g','Rolled oats dry — 30g','Creatine monohydrate — 5g','Ice — 5 cubes']},
+  {name:'Avocado Cream',tag:'Pre-Sleep Recovery',best:'Evening workouts',timing:'30 min before sleep',cal:820,pro:50,carb:38,fat:38,color:'#00D4AA',
+   science:'2025 RCT: avocado as nighttime snack lowers next-morning triglycerides. Monounsaturated fats support insulin sensitivity. Low glycemic — no overnight blood sugar spike.',
+   items:['Whole milk — 488g','Whey protein powder — 35g','Ripe avocado — 100g','Rolled oats dry — 30g','Ice — 5 cubes']},
+  {name:'MPS Max',tag:'Leucine-Forward',best:'Muscle building focus',timing:'Within 30 min',cal:850,pro:62,carb:44,fat:24,color:'#FFB830',
+   science:'30g protein + 3g leucine proven to trigger maximal muscle protein synthesis. Cottage cheese stacks leucine on top of whey for a double MPS signal.',
+   items:['Whole milk — 488g','Whey protein powder — 30g','Full-fat cottage cheese — 113g','Rolled oats dry — 30g','Ice — 5 cubes']},
+];
+
 const st={
   startDate:null,sessions:[],tab:'home',
   logPhase:'select',logWT:null,logExIdx:0,logData:[],logSets:[],logLastW:null,
   eatDay:(new Date().getDay()+6)%7,
-  liftW:null,histIdx:null,mealD:null
+  liftW:null,histIdx:null,mealD:null,shakeD:null
 };
 
 function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));}catch(e){}}
@@ -431,9 +449,59 @@ function rHist(){
     +'</div>';
 }
 
+// ── SHAKES ──
+function rShakes(){
+  if(st.shakeD!==null){
+    const s=SHAKES[st.shakeD];
+    return '<div class="pg">'
+      +'<button class="bghost" style="margin-top:max(56px,env(safe-area-inset-top));margin-bottom:8px;width:auto;padding:8px 14px;font-size:10px;color:'+s.color+';border-color:'+s.color+'44" data-a="shback">\u2190 ALL SHAKES</button>'
+      +'<div class="card" style="border-top:2px solid '+s.color+'">'
+      +'<div style="display:inline-block;background:'+s.color+'22;color:'+s.color+';font-size:9px;font-weight:700;letter-spacing:.12em;padding:3px 9px;border-radius:100px;text-transform:uppercase;margin-bottom:10px">'+esc(s.tag)+'</div>'
+      +'<div class="h1" style="font-size:34px;color:#fff;margin-bottom:14px">'+esc(s.name).toUpperCase()+'</div>'
+      +macrow([{l:'KCAL',v:s.cal,c:s.color},{l:'PRO',v:s.pro+'g',c:'#FF6B35'},{l:'CARB',v:s.carb+'g',c:'#C8F135'},{l:'FAT',v:s.fat+'g',c:'#FFB830'}])
+      +'</div>'
+      +'<div class="card" style="margin-bottom:12px">'
+      +'<div style="display:flex;gap:8px;margin-bottom:0">'
+      +'<div style="flex:1;background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:10px;text-align:center"><div class="h1" style="font-size:13px;color:'+s.color+'">'+esc(s.best)+'</div><div style="font-size:7px;color:#555;font-weight:700;letter-spacing:.1em;margin-top:3px">BEST FOR</div></div>'
+      +'<div style="flex:1;background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:10px;text-align:center"><div class="h1" style="font-size:13px;color:'+s.color+'">'+esc(s.timing)+'</div><div style="font-size:7px;color:#555;font-weight:700;letter-spacing:.1em;margin-top:3px">DRINK</div></div>'
+      +'</div></div>'
+      +'<div class="card"><div class="lbl" style="margin-bottom:10px">Ingredients</div>'
+      +s.items.map((item,i)=>'<div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:'+(i<s.items.length-1?'1px solid #1e1e1e':'none')+'"><span style="font-size:13px">'+esc(item.split(' \u2014 ')[0])+'</span><span class="h1" style="font-size:16px;color:'+s.color+'">'+esc(item.split(' \u2014 ')[1]||'')+'</span></div>').join('')
+      +'</div>'
+      +'<div class="card" style="border-color:'+s.color+'33;background:'+s.color+'08">'
+      +'<div class="lbl" style="color:'+s.color+';margin-bottom:8px">The Science</div>'
+      +'<div style="font-size:11px;color:#aaa;line-height:1.7">'+esc(s.science)+'</div>'
+      +'</div>'
+      +'<div class="card">'
+      +'<div class="lbl" style="margin-bottom:8px">How to Blend</div>'
+      +'<div style="font-size:11px;color:#aaa;line-height:1.7">Add all ingredients to blender. Blend on high 45\u201360 seconds until smooth. Drink immediately \u2014 never pre-make.</div>'
+      +'</div></div>';
+  }
+  return '<div class="pg">'
+    +'<div class="ph"><div class="lbl" style="margin-bottom:6px">Science-Backed</div><div class="h1" style="font-size:40px;color:#fff">SHAKES</div></div>'
+    +'<div class="card" style="border-color:'+A+'33;background:'+A+'06;margin-bottom:12px">'
+    +'<div class="lbl" style="color:'+A+';margin-bottom:8px">Your Current Shake</div>'
+    +'<div style="font-size:11px;color:#aaa;line-height:1.7">The <span style="color:'+A+'">Avocado Cream</span> is your go-to post-workout pre-sleep shake \u2014 research-backed for your training schedule. The others are situational upgrades.</div>'
+    +'</div>'
+    +SHAKES.map((s,i)=>'<div class="card" style="border-top:2px solid '+s.color+';cursor:pointer" data-a="shsel" data-i="'+i+'">'
+      +'<div class="rb" style="margin-bottom:8px">'
+      +'<div style="flex:1;padding-right:12px">'
+      +'<div style="display:inline-block;background:'+s.color+'22;color:'+s.color+';font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 7px;border-radius:100px;text-transform:uppercase;margin-bottom:6px">'+esc(s.tag)+'</div>'
+      +'<div class="h1" style="font-size:22px;color:#fff">'+esc(s.name).toUpperCase()+'</div>'
+      +'<div style="font-size:9px;color:#555;margin-top:3px">'+esc(s.best)+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0"><div class="h1" style="font-size:28px;color:'+s.color+'">'+s.cal+'</div><div style="font-size:7px;color:#555;font-weight:700">KCAL</div></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px">'
+      +[{l:'PRO',v:s.pro+'g'},{l:'CARB',v:s.carb+'g'},{l:'FAT',v:s.fat+'g'}].map(x=>'<div style="background:#161616;border:1px solid #1e1e1e;border-radius:8px;padding:5px 10px;display:flex;gap:4px;align-items:center"><span style="font-size:7px;color:#555;font-weight:700;letter-spacing:.1em">'+x.l+'</span><span style="font-size:11px">'+x.v+'</span></div>').join('')
+      +'<div style="margin-left:auto;font-size:9px;color:'+s.color+';align-self:center">RECIPE \u2192</div>'
+      +'</div></div>').join('')
+    +'</div>';
+}
+
 // ── NAV ──
 function rNav(){
-  const tabs=[{id:'home',icon:'\u25c8',l:'HOME'},{id:'log',icon:'\u2295',l:'LOG'},{id:'eat',icon:'\u25c9',l:'EAT'},{id:'lift',icon:'\u25b3',l:'LIFT'},{id:'history',icon:'\u25ce',l:'HISTORY'}];
+  const tabs=[{id:'home',icon:'\u25c8',l:'HOME'},{id:'log',icon:'\u2295',l:'LOG'},{id:'eat',icon:'\u25c9',l:'EAT'},{id:'lift',icon:'\u25b3',l:'LIFT'},{id:'shakes',icon:'\u25a6',l:'SHAKES'},{id:'history',icon:'\u25ce',l:'HIST'}];
   return tabs.map(t=>'<button class="nb" data-a="tab" data-t="'+t.id+'"><div class="ni" style="color:'+(st.tab===t.id?A:'#2a2a2a')+'">'+t.icon+'</div><div class="nl" style="color:'+(st.tab===t.id?A:'#2a2a2a')+'">'+t.l+'</div></button>').join('');
 }
 
@@ -442,7 +510,7 @@ function render(){
   const C=document.getElementById('content'),N=document.getElementById('nav');
   if(!st.startDate){C.innerHTML=rSetup();N.innerHTML='';return;}
   N.innerHTML=rNav();
-  switch(st.tab){case'home':C.innerHTML=rHome();break;case'log':C.innerHTML=rLog();break;case'eat':C.innerHTML=rEat();break;case'lift':C.innerHTML=rLift();break;case'history':C.innerHTML=rHist();break;}
+  switch(st.tab){case'home':C.innerHTML=rHome();break;case'log':C.innerHTML=rLog();break;case'eat':C.innerHTML=rEat();break;case'lift':C.innerHTML=rLift();break;case'shakes':C.innerHTML=rShakes();break;case'history':C.innerHTML=rHist();break;}
   C.scrollTop=0;
 }
 
@@ -450,7 +518,7 @@ function render(){
 function act(a,el){
   switch(a){
     case'setup':st.startDate=tkey();st.sessions=[];save();break;
-    case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;break;
+    case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;st.shakeD=null;break;
     case'goto-log':st.tab='log';st.logPhase='select';break;
     case'start':{const t=el.dataset.t,wk=WK[t];st.logWT=t;st.logData=wk.ex.map(e=>({n:e.n,r:e.r,s:e.s,completedSets:[]}));st.logExIdx=0;st.logSets=[];st.logLastW=null;st.logPhase='ex';}break;
     case'addset':{const w=parseFloat(document.getElementById('wi')?.value),r=parseInt(document.getElementById('ri')?.value);if(!w||!r||w<=0||r<=0)return;st.logLastW=w;st.logSets=[...st.logSets,{w,r}];}break;
@@ -480,6 +548,8 @@ function act(a,el){
     case'lback':st.liftW=null;break;
     case'hsel':st.histIdx=parseInt(el.dataset.i);break;
     case'hback':st.histIdx=null;break;
+    case'shsel':st.shakeD=parseInt(el.dataset.i);break;
+    case'shback':st.shakeD=null;break;
   }
   render();
   if(a==='addset'&&st.logPhase==='ex'&&st.logSets.length<st.logData[st.logExIdx]?.s){

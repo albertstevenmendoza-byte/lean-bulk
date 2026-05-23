@@ -128,6 +128,61 @@ const MD={
 };
 const TM=['breakfast','midmorning','lunch','preworkout','shake'];
 const RM=['breakfast','midmorning','lunch','restsnack','dinner'];
+
+const SWAPS={
+  breakfast:[
+    {label:'Egg White Oats',cal:535,pro:38,carb:62,fat:16,
+     items:['Rolled oats dry — 80g','Egg whites liquid — 200g','Almond milk — 240g','Almond butter — 16g']},
+    {label:'Yogurt Parfait',cal:565,pro:41,carb:70,fat:14,
+     items:['Fage 0% Greek yogurt — 150g','Rolled oats dry — 70g','Banana — 100g','Whey protein — 20g','Almond butter — 10g']},
+  ],
+  midmorning:[
+    {label:'Cottage Cheese Bowl',cal:215,pro:21,carb:30,fat:5,
+     items:['Full-fat cottage cheese — 200g','Banana — 100g','Blueberries — 60g']},
+    {label:'Apple & Yogurt',cal:195,pro:18,carb:32,fat:1,
+     items:['Fage 0% Greek yogurt — 150g','Apple — 150g']},
+  ],
+  lunch:[
+    {label:'Ground Turkey',cal:695,pro:65,carb:67,fat:17,
+     items:['Ground turkey 99% lean cooked — 200g','White rice cooked — 200g','Mixed vegetables — 150g','Olive oil — 10g']},
+    {label:'Ground Beef 93/7',cal:718,pro:58,carb:67,fat:23,
+     items:['Ground beef 93/7 cooked — 200g','White rice cooked — 200g','Mixed vegetables — 150g','Olive oil — 6g']},
+    {label:'Tilapia',cal:688,pro:72,carb:67,fat:11,
+     items:['Tilapia fillet cooked — 250g','White rice cooked — 200g','Mixed vegetables — 150g','Olive oil — 8g']},
+    {label:'Salmon',cal:740,pro:67,carb:57,fat:22,
+     items:['Salmon cooked — 180g','White rice cooked — 175g','Mixed vegetables — 150g']},
+  ],
+  preworkout:[
+    {label:'Tuna & Sweet Potato',cal:248,pro:28,carb:33,fat:2,
+     items:['Tuna in water drained — 130g','Sweet potato baked — 150g']},
+    {label:'Cottage Cheese & Banana',cal:245,pro:18,carb:40,fat:5,
+     items:['Full-fat cottage cheese — 150g','Banana — 100g']},
+  ],
+  shake:[
+    {label:'Double Punch',cal:780,pro:48,carb:42,fat:22,
+     items:['Whole milk — 488g','Whey protein powder — 35g','Rolled oats dry — 30g','Ice — 5 cubes']},
+    {label:'Strength Builder',cal:785,pro:48,carb:42,fat:22,
+     items:['Whole milk — 488g','Whey protein powder — 35g','Rolled oats dry — 30g','Creatine monohydrate — 5g','Ice — 5 cubes']},
+    {label:'Anti-Inflame',cal:680,pro:42,carb:38,fat:18,
+     items:['Tart cherry juice — 240g','Whole milk — 244g','Whey protein powder — 35g','Natural almond butter — 32g','Ice — 5 cubes']},
+  ],
+  dinner:[
+    {label:'Ground Turkey',cal:465,pro:49,carb:37,fat:14,
+     items:['Ground turkey 99% lean cooked — 200g','Sweet potato baked — 150g','Broccoli — 100g','Olive oil — 5g']},
+    {label:'Ground Beef 93/7',cal:475,pro:44,carb:30,fat:18,
+     items:['Ground beef 93/7 cooked — 180g','Sweet potato baked — 120g','Broccoli — 100g']},
+    {label:'Salmon',cal:455,pro:42,carb:30,fat:17,
+     items:['Salmon cooked — 120g','Sweet potato baked — 120g','Asparagus — 120g']},
+    {label:'Tilapia',cal:440,pro:52,carb:37,fat:7,
+     items:['Tilapia fillet cooked — 200g','Sweet potato baked — 150g','Broccoli — 100g','Olive oil — 3g']},
+  ],
+  restsnack:[
+    {label:'Canned Tuna',cal:100,pro:22,carb:0,fat:1,
+     items:['Tuna in water drained — 130g']},
+    {label:'Cottage Cheese',cal:130,pro:15,carb:5,fat:5,
+     items:['Full-fat cottage cheese — 150g']},
+  ],
+};
 const SHAKES=[
   {name:'Double Punch',tag:'Whey + Casein',best:'Any post-workout',timing:'Within 30 min',cal:780,pro:48,carb:42,fat:22,color:'#5C9900',
    science:'Fast whey hits muscles immediately. Slow casein keeps amino acids flowing for hours. NCAA and pro cycling team-backed.',
@@ -150,7 +205,7 @@ const st={
   startDate:null,sessions:[],tab:'home',
   logPhase:'select',logWT:null,logExIdx:0,logData:[],logSets:[],logLastW:null,
   eatDay:(new Date().getDay()+6)%7,
-  liftW:null,histIdx:null,mealD:null,shakeD:null
+  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{}
 };
 
 function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));}catch(e){}}
@@ -213,12 +268,18 @@ function rHome(){
       :'<div style="font-size:11px;color:'+DIM+';line-height:1.6">'+(new Date().getDay()===6?'Zone 2 cardio \u2014 20\u201330 min brisk walk or easy bike.':'Rest day. Eat rest-day meals, sleep 7\u20139 hrs.')+'</div>')
     +'</div>'
     +'<div class="card" style="border-color:#A5D6A7;background:#F1F8E9;margin-bottom:12px">'
-    +'<div class="lbl" style="color:'+A+';margin-bottom:8px">Daily Target \u2014 All Week</div>'
-    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
-    +[{l:'KCAL',v:'2,330',c:A},{l:'PROTEIN',v:'190g',c:'#E05C1A'},{l:'CARBS',v:'~256g',c:'#5C9900'},{l:'FAT',v:'~64g',c:'#D98800'}].map(m=>'<div class="mc"><div class="v" style="color:'+m.c+'">'+m.v+'</div><div class="l">'+m.l+'</div></div>').join('')
+    +'<div style="display:flex;gap:10px;margin-bottom:0">'
+    +'<div style="flex:1;background:#fff;border:1px solid '+BDR+';border-radius:12px;padding:12px;border-top:2px solid '+A+'">'
+    +'<div class="lbl" style="color:'+A+';margin-bottom:6px">Training Day</div>'
+    +'<div class="h1" style="font-size:28px;color:'+TXT+'">2,330</div>'
+    +'<div style="font-size:8px;color:'+DIM+';margin-top:2px">KCAL \u00b7 5 MEALS</div>'
     +'</div>'
-    +'<div style="font-size:10px;color:'+MUT+';line-height:1.6">Training and rest day meals are different but both land at ~2,330 kcal. Consistent surplus all week.</div>'
+    +'<div style="flex:1;background:#fff;border:1px solid '+BDR+';border-radius:12px;padding:12px;border-top:2px solid '+W+'">'
+    +'<div class="lbl" style="color:'+W+';margin-bottom:6px">Rest / Cardio Day</div>'
+    +'<div class="h1" style="font-size:28px;color:'+TXT+'">2,095</div>'
+    +'<div style="font-size:8px;color:'+DIM+';margin-top:2px">KCAL \u00b7 5 MEALS</div>'
     +'</div>'
+    +'</div></div>'
     +'<div class="sg">'
     +'<div class="sc"><div class="h1" style="font-size:34px;color:'+A+'">'+st.sessions.length+'</div><div class="lbl" style="margin-top:4px">Logged</div></div>'
     +'<div class="sc"><div class="h1" style="font-size:34px;color:'+W+'">'+DW.filter(x=>x<w).length+'</div><div class="lbl" style="margin-top:4px">Deloads</div></div>'
@@ -301,15 +362,23 @@ function rEat(){
   const dc=DC[st.eatDay],mk=dc.t==='training'?TM:RM,meals=mk.map(k=>MD[k]);
   const tc=meals.reduce((a,m)=>a+m.cal,0),tp=meals.reduce((a,m)=>a+m.pro,0),tcarb=meals.reduce((a,m)=>a+m.carb,0),tf=meals.reduce((a,m)=>a+m.fat,0);
   if(st.mealD!==null){
-    const m=meals[st.mealD];
+    const mealKey=mk[st.mealD],m=MD[mealKey];
+    const swaps=SWAPS[mealKey]||[],swapIdx=(st.mealSwapIdx||{})[mealKey]||0;
+    const v=swapIdx===0?{items:m.items,cal:m.cal,pro:m.pro,carb:m.carb,fat:m.fat}:swaps[swapIdx-1];
+    const allOpts=[{label:'Default'},...swaps];
     return '<div class="pg"><button class="bghost" style="margin-top:max(56px,env(safe-area-inset-top));margin-bottom:8px;width:auto;padding:8px 14px;font-size:10px;color:'+m.color+';border-color:'+m.color+'44" data-a="mback">\u2190 '+dc.d+' MEALS</button>'
       +'<div class="card" style="border-top:2px solid '+m.color+'">'
       +'<div style="font-size:9px;color:'+m.color+';font-weight:700;letter-spacing:.1em;margin-bottom:4px">'+m.time+'</div>'
-      +'<div class="h1" style="font-size:32px;color:'+TXT+';margin-bottom:14px">'+m.name.toUpperCase()+'</div>'
-      +macrow([{l:'KCAL',v:m.cal,c:m.color},{l:'PRO',v:m.pro+'g',c:'#E05C1A'},{l:'CARB',v:m.carb+'g',c:'#5C9900'},{l:'FAT',v:m.fat+'g',c:'#D98800'}])+'</div>'
+      +'<div class="h1" style="font-size:32px;color:'+TXT+';margin-bottom:10px">'+m.name.toUpperCase()+'</div>'
+      +(swaps.length?'<div class="dscr" style="margin-bottom:12px">'
+        +allOpts.map((opt,i)=>'<button class="dbtn" style="background:'+(swapIdx===i?m.color:C2)+';border-color:'+(swapIdx===i?m.color:BDR)+';padding:6px 10px" data-a="swaptab" data-k="'+mealKey+'" data-i="'+i+'">'
+          +'<span style="font-size:8px;font-weight:700;letter-spacing:.06em;color:'+(swapIdx===i?'#fff':DIM)+'">'+esc(opt.label)+'</span></button>').join('')
+        +'</div>':'')
+      +macrow([{l:'KCAL',v:v.cal,c:m.color},{l:'PRO',v:v.pro+'g',c:'#E05C1A'},{l:'CARB',v:v.carb+'g',c:'#5C9900'},{l:'FAT',v:v.fat+'g',c:'#D98800'}])+'</div>'
       +'<div class="card"><div class="lbl" style="margin-bottom:10px">Ingredients</div>'
-      +m.items.map((item,i)=>'<div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:'+(i<m.items.length-1?'1px solid '+BDR:'none')+'"><span style="font-size:13px;color:'+TXT+'">'+esc(item.split(' \u2014 ')[0])+'</span><span class="h1" style="font-size:16px;color:'+m.color+'">'+esc(item.split(' \u2014 ')[1]||'')+'</span></div>').join('')+'</div>'
-      +'<div class="card" style="border-color:'+m.color+'44;background:'+m.color+'0A"><div class="lbl" style="color:'+m.color+';margin-bottom:8px">Prep Note</div><div style="font-size:11px;color:'+MUT+';line-height:1.7">'+esc(m.note)+'</div></div></div>';
+      +v.items.map((item,i)=>'<div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:'+(i<v.items.length-1?'1px solid '+BDR:'none')+'"><span style="font-size:13px;color:'+TXT+'">'+esc(item.split(' \u2014 ')[0])+'</span><span class="h1" style="font-size:16px;color:'+m.color+'">'+esc(item.split(' \u2014 ')[1]||'')+'</span></div>').join('')+'</div>'
+      +(swapIdx===0?'<div class="card" style="border-color:'+m.color+'44;background:'+m.color+'0A"><div class="lbl" style="color:'+m.color+';margin-bottom:8px">Prep Note</div><div style="font-size:11px;color:'+MUT+';line-height:1.7">'+esc(m.note)+'</div></div>':'')
+      +'</div>';
   }
   return '<div class="pg"><div class="ph"><div class="lbl" style="margin-bottom:6px">Day-by-Day</div><div class="h1" style="font-size:40px;color:'+TXT+'">MEAL PLAN</div></div>'
     +'<div class="dscr" style="margin-bottom:14px">'
@@ -436,7 +505,7 @@ function render(){
 function act(a,el){
   switch(a){
     case'setup':st.startDate=tkey();st.sessions=[];save();break;
-    case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;st.shakeD=null;break;
+    case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;st.shakeD=null;st.mealSwapIdx={};break;
     case'goto-log':st.tab='log';st.logPhase='select';break;
     case'start':{const t=el.dataset.t,wk=WK[t];st.logWT=t;st.logData=wk.ex.map(e=>({n:e.n,r:e.r,s:e.s,rpe:e.rpe,note:e.note||null,completedSets:[]}));st.logExIdx=0;st.logSets=[];st.logLastW=null;st.logPhase='ex';}break;
     case'addset':{const w=parseFloat(document.getElementById('wi')?.value),r=parseInt(document.getElementById('ri')?.value);if(!w||!r||w<=0||r<=0)return;st.logLastW=w;st.logSets=[...st.logSets,{w,r}];}break;
@@ -451,6 +520,7 @@ function act(a,el){
     case'resetlog':st.logPhase='select';break;
     case'eday':st.eatDay=parseInt(el.dataset.i);st.mealD=null;break;
     case'mdetail':st.mealD=parseInt(el.dataset.i);break;
+    case'swaptab':if(!st.mealSwapIdx)st.mealSwapIdx={};st.mealSwapIdx[el.dataset.k]=parseInt(el.dataset.i);break;
     case'mback':st.mealD=null;break;
     case'lsel':st.liftW=parseInt(el.dataset.i);break;
     case'lback':st.liftW=null;break;

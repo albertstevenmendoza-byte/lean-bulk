@@ -227,11 +227,35 @@ const SHAKES=[
    items:['Whole milk \u2014 488g','Whey protein powder \u2014 30g','Full-fat cottage cheese \u2014 113g','Rolled oats dry \u2014 30g','Ice \u2014 5 cubes']},
 ];
 
+const EX_SWAPS={
+  'Barbell Bench Press':['DB Bench Press','Machine Chest Press','Weighted Push-ups'],
+  'Incline DB Press':['Incline Barbell Press','Cable Chest Fly','Machine Incline Press'],
+  'DB Shoulder Press':['Barbell Overhead Press','Machine Shoulder Press','Arnold Press'],
+  'Lateral Raises':['Cable Lateral Raises','Machine Lateral Raises'],
+  'Tricep Pushdowns':['Skull Crushers','Overhead Tricep Extension','Tricep Dips'],
+  'Face Pulls':['Reverse Pec Deck','Band Pull-Aparts','Rear Delt Machine'],
+  'Barbell Back Squat':['Hack Squat','Goblet Squat','Smith Machine Squat'],
+  'Romanian Deadlift':['Stiff Leg Deadlift','Good Mornings','Single Leg RDL'],
+  'Leg Press':['Hack Squat','Belt Squat','Leg Press (High Feet)'],
+  'Leg Extension':['Spanish Squat','Sissy Squat','Terminal Knee Extension'],
+  'Standing Calf Raises':['Seated Calf Raises','Leg Press Calf Raises'],
+  'Barbell Row':['DB Row','Cable Row','T-Bar Row','Machine Row'],
+  'Lat Pulldown / Pull-ups':['Single Arm Pulldown','Straight Arm Pulldown','Assisted Pull-ups'],
+  'Seated Cable Row':['Chest Supported Row','DB Row','Machine Row'],
+  'DB Bicep Curls':['Barbell Curls','Cable Curls','Preacher Curls'],
+  'Hammer Curls':['Cross-Body Curls','Cable Hammer Curls','Rope Curls'],
+  'Rear Delt Flies':['Face Pulls','Reverse Pec Deck','Band Pull-Aparts'],
+  'Conventional Deadlift':['Sumo Deadlift','Trap Bar Deadlift','Romanian Deadlift'],
+  'Bulgarian Split Squat':['Reverse Lunge','Walking Lunge','Step-ups'],
+  'Hip Thrust':['Glute Bridge','Single Leg Hip Thrust','Cable Kickback'],
+  'Seated Leg Curl':['Lying Leg Curl','Nordic Curl','Single Leg Curl'],
+  'Seated Calf Raises':['Standing Calf Raises','Leg Press Calf Raises'],
+};
 const st={
   startDate:null,sessions:[],tab:'home',
   logPhase:'select',logWT:null,logExIdx:0,logData:[],logSets:[],logLastW:null,
   eatDay:(new Date().getDay()+6)%7,
-  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{}
+  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false
 };
 
 function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));}catch(e){}}
@@ -240,7 +264,7 @@ function tkey(){return new Date().toISOString().slice(0,10);}
 function gw(){if(!st.startDate)return 1;return Math.max(1,Math.floor((Date.now()-new Date(st.startDate))/604800000)+1);}
 function idl(w){return DW.includes(w);}
 function gls(type){return[...st.sessions].reverse().find(s=>s.wt===type&&s.date!==tkey());}
-function glw(n){if(!st.logWT)return null;const s=gls(st.logWT);return s?.exs?.find(e=>e.n===n)?.sets?.[0]?.w||null;}
+function glw(idx){if(!st.logWT)return null;const s=gls(st.logWT);if(!s)return null;const ex=s.exs?.find(e=>e.slot===idx)||s.exs?.[idx];return ex?{w:ex.sets?.[0]?.w||null,name:ex.n}:null;}
 function gprogs(sess){return sess.exs.filter(ex=>ex.sets.length>0&&ex.sets.every(s=>s.r>=(rtop(ex.r))&&s.w>0)).map(ex=>ex.n);}
 function allprogs(){return[...new Set(st.sessions.slice(-6).flatMap(s=>s.progs||[]))].slice(0,5);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
@@ -336,19 +360,29 @@ function rLogSel(){
 // ── LOG EXERCISE ──
 function rLogEx(){
   const w=gw(),dl=idl(w),ex=st.logData[st.logExIdx],wk=WK[st.logWT],c=wk.color;
-  const top=rtop(ex.r),lastW=glw(ex.n),dlW=lastW?Math.round(lastW*.55/2.5)*2.5:null;
+  const top=rtop(ex.r),last=glw(st.logExIdx);
+  const lastW=last?.w||null,dlW=lastW?Math.round(lastW*.55/2.5)*2.5:null;
   const sug=dl?dlW:lastW,done=st.logSets.length>=ex.s,allHit=done&&st.logSets.every(s=>s.r>=top);
-  const targetRpe=dl?'5\u20136':ex.rpe;
+  const alts=EX_SWAPS[ex.originalN||ex.n]||[];
+  const isSwapped=ex.originalN&&ex.n!==ex.originalN;
   return '<div class="pg">'
     +'<div class="ph"><div class="rb" style="align-items:flex-start">'
-    +'<div style="flex:1;padding-right:12px"><div class="lbl" style="color:'+c+';margin-bottom:6px">'+st.logWT+' \u00b7 '+(st.logExIdx+1)+'/'+st.logData.length+'</div>'
-    +'<div class="h1" style="font-size:22px;color:'+TXT+';line-height:1.2;margin-bottom:8px">'+esc(ex.n)+'</div>'
-    +rpebadge(dl?5:ex.rpe,dl?null:ex.note)
+    +'<div style="flex:1;padding-right:12px">'
+    +'<div class="lbl" style="color:'+c+';margin-bottom:6px">'+st.logWT+' \u00b7 '+(st.logExIdx+1)+'/'+st.logData.length+'</div>'
+    +'<div class="h1" style="font-size:20px;color:'+TXT+';line-height:1.2;margin-bottom:4px">'+esc(ex.n)+'</div>'
+    +(isSwapped?'<div style="font-size:8px;color:'+c+';letter-spacing:.06em;margin-bottom:6px">SWAPPED FROM '+esc(ex.originalN).toUpperCase()+'</div>':'')
+    +'<div style="margin-bottom:8px">'+rpebadge(dl?5:ex.rpe,dl?null:ex.note)+'</div>'
+    +(alts.length&&!done?'<button class="bsm" data-a="showswap" style="color:'+c+';border-color:'+c+'44;font-size:8px">'+(st.showSwapPicker?'\u00d7 CANCEL':'\u21c4 SWAP EXERCISE')+'</button>':'')
     +'</div>'
     +'<div class="tb" style="border-color:'+c+'66"><div class="h1" style="font-size:22px;color:'+c+'">'+ex.s+'\u00d7'+ex.r+'</div><div style="font-size:7px;color:'+DIM+';margin-top:2px">TARGET</div></div>'
     +'</div></div>'
+    +(st.showSwapPicker&&alts.length?'<div class="card" style="margin-bottom:12px;border-color:'+c+'33">'
+      +'<div class="lbl" style="color:'+c+';margin-bottom:10px">Select Alternative</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px">'
+      +[ex.originalN||ex.n,...alts.filter(a=>a!==(ex.originalN||ex.n)&&a!==ex.n)].map((nm,i)=>'<button data-a="doswap" data-name="'+esc(nm)+'" style="background:'+(nm===ex.n?c:'#EDECEA')+';border:1px solid '+(nm===ex.n?c:BDR)+';border-radius:10px;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:'+(nm===ex.n?'#fff':TXT)+';text-align:left;cursor:pointer">'+(i===0?'Default: ':'')+esc(nm)+(nm===ex.n?' \u2713':'')+'</button>').join('')
+      +'</div></div>':'')
     +(lastW?'<div class="card" style="margin-bottom:12px"><div class="rb">'
-      +'<div><div class="lbl" style="margin-bottom:4px">Last Session</div><div style="font-size:15px;font-weight:500;color:'+TXT+'">'+lastW+' lbs</div></div>'
+      +'<div><div class="lbl" style="margin-bottom:4px">'+(last.name&&last.name!==ex.n?'Last Session ('+esc(last.name)+')':'Last Session')+'</div><div style="font-size:15px;font-weight:500;color:'+TXT+'">'+lastW+' lbs</div></div>'
       +(dl&&dlW?'<div style="text-align:right"><div class="lbl" style="color:'+W+';margin-bottom:4px">Deload 55%</div><div style="font-size:15px;color:'+W+';font-weight:500">'+dlW+' lbs</div></div>':'')
       +'</div></div>':'')
     +(st.logSets.length?'<div class="card" style="margin-bottom:12px">'
@@ -503,7 +537,7 @@ function rHist(){
       +'<div class="card" style="border-top:2px solid '+c+'">'
       +'<div style="font-size:9px;color:'+c+';font-weight:700;letter-spacing:.1em;margin-bottom:4px">'+s.date+' \u00b7 Week '+s.week+(s.dl?' \u00b7 DELOAD':'')+'</div>'
       +'<div class="h1" style="font-size:30px;color:'+TXT+'">'+s.wt.toUpperCase()+'</div></div>'
-      +s.exs.map((ex,i)=>{if(!ex.sets.length)return'';const top=rtop(ex.r),ah=ex.sets.every(s=>s.r>=top);return'<div class="card"><div class="rb" style="margin-bottom:10px"><div style="font-size:13px;color:'+TXT+'">'+esc(ex.n)+'</div>'+(ah?'<div style="font-size:8px;color:'+A+';font-weight:700;letter-spacing:.1em">\u2191 PR READY</div>':'')+'</div>'+ex.sets.map((set,j)=>'<div class="sr'+(set.r>=top?' hit':'')+'"><span class="sn">Set '+(j+1)+'</span><span>'+set.w+' lbs \u00d7 '+set.r+'</span></div>').join('')+'</div>';}).join('')
+      +s.exs.map((ex,i)=>{if(!ex.sets.length)return'';const top=rtop(ex.r),ah=ex.sets.every(s=>s.r>=top);const swapNote=ex.originalN&&ex.originalN!==ex.n?' <span style="font-size:8px;color:'+A+'">swapped from '+esc(ex.originalN)+'</span>':'';return'<div class="card"><div class="rb" style="margin-bottom:10px"><div><div style="font-size:13px;color:'+TXT+'">'+esc(ex.n)+swapNote+'</div></div>'+(ah?'<div style="font-size:8px;color:'+A+';font-weight:700;letter-spacing:.1em">\u2191 PR READY</div>':'')+'</div>'+ex.sets.map((set,j)=>'<div class="sr'+(set.r>=top?' hit':'')+'"><span class="sn">Set '+(j+1)+'</span><span>'+set.w+' lbs \u00d7 '+set.r+'</span></div>').join('')+'</div>';}).join('')
       +((s.progs||[]).length?'<div class="card" style="border-color:#A5D6A7;background:#F1F8E9"><div class="lbl" style="color:'+A+';margin-bottom:8px">Add Weight Next '+s.wt+'</div>'+(s.progs||[]).map((p,i)=>'<div style="font-size:11px;color:'+MUT+';padding:5px 0;border-bottom:'+(i<s.progs.length-1?'1px solid '+BDR:'none')+'">\u2191 '+esc(p)+'</div>').join('')+'</div>':'')
       +'</div>';
   }
@@ -533,16 +567,18 @@ function act(a,el){
     case'setup':st.startDate=tkey();st.sessions=[];save();break;
     case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;st.shakeD=null;st.mealSwapIdx={};break;
     case'goto-log':st.tab='log';st.logPhase='select';break;
-    case'start':{const t=el.dataset.t,wk=WK[t];st.logWT=t;st.logData=wk.ex.map(e=>({n:e.n,r:e.r,s:e.s,rpe:e.rpe,note:e.note||null,completedSets:[]}));st.logExIdx=0;st.logSets=[];st.logLastW=null;st.logPhase='ex';}break;
+    case'start':{const t=el.dataset.t,wk=WK[t];st.logWT=t;st.logData=wk.ex.map(e=>({n:e.n,originalN:e.n,r:e.r,s:e.s,rpe:e.rpe,note:e.note||null,completedSets:[]}));st.logExIdx=0;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;st.logPhase='ex';}break;
+    case'showswap':st.showSwapPicker=!st.showSwapPicker;break;
+    case'doswap':{const nm=el.dataset.name;st.logData=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,n:nm}:ex);st.showSwapPicker=false;}break;
     case'addset':{const w=parseFloat(document.getElementById('wi')?.value),r=parseInt(document.getElementById('ri')?.value);if(!w||!r||w<=0||r<=0)return;st.logLastW=w;st.logSets=[...st.logSets,{w,r}];}break;
     case'undo':if(st.logSets.length)st.logSets=st.logSets.slice(0,-1);break;
     case'nextex':{
       const upd=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,completedSets:st.logSets}:ex);
       st.logData=upd;
-      if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;}
-      else{const sess={date:tkey(),week:gw(),wt:st.logWT,dl:idl(gw()),exs:upd.map(ex=>({n:ex.n,r:ex.r,sets:ex.completedSets}))};sess.progs=gprogs(sess);st.sessions=[...st.sessions.filter(s=>!(s.date===sess.date&&s.wt===sess.wt)),sess];save();st.logPhase='done';}
+      if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;}
+      else{const sess={date:tkey(),week:gw(),wt:st.logWT,dl:idl(gw()),exs:upd.map((ex,i)=>({slot:i,n:ex.n,originalN:ex.originalN||ex.n,r:ex.r,sets:ex.completedSets}))};sess.progs=gprogs(sess);st.sessions=[...st.sessions.filter(s=>!(s.date===sess.date&&s.wt===sess.wt)),sess];save();st.logPhase='done';}
     }break;
-    case'skipex':{const upd=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,completedSets:[]}:ex);st.logData=upd;if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;}else st.logPhase='done';}break;
+    case'skipex':{const upd=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,completedSets:[]}:ex);st.logData=upd;if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;}else st.logPhase='done';}break;
     case'resetlog':st.logPhase='select';break;
     case'eday':st.eatDay=parseInt(el.dataset.i);st.mealD=null;break;
     case'mdetail':st.mealD=parseInt(el.dataset.i);break;

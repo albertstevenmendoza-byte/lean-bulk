@@ -11,22 +11,22 @@
 <style>
 :root{--a:#00B894;--bg:#F2F1EE;--card:#FFFFFF;--card2:#EDECEA;--b:#E0DDD9;--txt:#1C1A18;--dim:#9A9795;--warn:#D98800}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'IBM Plex Mono',monospace;overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:monospace;overflow:hidden}
 #app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:430px;margin:0 auto}
 #content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 #nav{flex-shrink:0;background:#fff;border-top:1px solid var(--b);display:flex;padding:10px 0;padding-bottom:calc(10px + env(safe-area-inset-bottom));box-shadow:0 -1px 6px rgba(0,0,0,.06)}
 .nb{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0}
 .ni{font-size:17px;line-height:1}
-.nl{font-size:6px;font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:.1em}
+.nl{font-size:6px;font-family:monospace;font-weight:700;letter-spacing:.1em}
 .pg{padding:0 18px}
 .ph{padding-top:max(48px,calc(env(safe-area-inset-top) + 20px));padding-bottom:20px}
 .lbl{font-size:8px;font-weight:700;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
 .h1{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:-.01em;line-height:1}
 .card{background:var(--card);border-radius:18px;border:1px solid var(--b);padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .btn{width:100%;border:none;border-radius:12px;padding:15px;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:.04em;cursor:pointer;margin-bottom:8px;display:block}
-.bghost{width:100%;background:transparent;border:1px solid var(--b);border-radius:12px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer;margin-bottom:8px;display:block;letter-spacing:.06em}
-.bsm{background:transparent;border:1px solid var(--b);border-radius:8px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);cursor:pointer;letter-spacing:.08em}
-.nin{width:100%;background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:14px 10px;color:var(--txt);font-family:'IBM Plex Mono',monospace;font-size:22px;text-align:center;-webkit-appearance:none}
+.bghost{width:100%;background:transparent;border:1px solid var(--b);border-radius:12px;padding:12px;font-family:monospace;font-size:10px;color:var(--dim);cursor:pointer;margin-bottom:8px;display:block;letter-spacing:.06em}
+.bsm{background:transparent;border:1px solid var(--b);border-radius:8px;padding:4px 10px;font-family:monospace;font-size:9px;color:var(--dim);cursor:pointer;letter-spacing:.08em}
+.nin{width:100%;background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:14px 10px;color:var(--txt);font-family:monospace;font-size:22px;text-align:center;-webkit-appearance:none}
 .nin:focus{outline:2px solid var(--a)}
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .irow{display:flex;gap:10px;margin-bottom:12px}
@@ -255,11 +255,11 @@ const st={
   startDate:null,sessions:[],tab:'home',
   logPhase:'select',logWT:null,logExIdx:0,logData:[],logSets:[],logLastW:null,
   eatDay:(new Date().getDay()+6)%7,
-  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false,mealTimes:{}
+  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false,workoutTime:'17:00'
 };
 
-function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));localStorage.setItem('lb_mt',JSON.stringify(st.mealTimes||{}));}catch(e){}}
-function load(){try{st.startDate=localStorage.getItem('lb_sd')||null;st.sessions=JSON.parse(localStorage.getItem('lb_sx')||'[]');st.mealTimes=JSON.parse(localStorage.getItem('lb_mt')||'{}');}catch(e){}}
+function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));localStorage.setItem('lb_wt',st.workoutTime||'17:00');}catch(e){}}
+function load(){try{st.startDate=localStorage.getItem('lb_sd')||null;st.sessions=JSON.parse(localStorage.getItem('lb_sx')||'[]');st.workoutTime=localStorage.getItem('lb_wt')||'17:00';}catch(e){}}
 function tkey(){return new Date().toISOString().slice(0,10);}
 function gw(){if(!st.startDate)return 1;return Math.max(1,Math.floor((Date.now()-new Date(st.startDate))/604800000)+1);}
 function idl(w){return DW.includes(w);}
@@ -270,7 +270,19 @@ function allprogs(){return[...new Set(st.sessions.slice(-6).flatMap(s=>s.progs||
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 function fmt12(t){const[h,m]=t.split(':').map(Number);const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
 function to24(s){if(!s||s==='Post-Gym')return'';const p=s.trim().split(/\s+/);if(p.length<2)return'';let[h,m]=p[0].split(':').map(Number);const ap=p[1].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return(h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
-function getMealTime(key){const ov=(st.mealTimes||{})[key];return ov?fmt12(ov):MD[key]?.time||'';}
+function minToDisplay(min){let h=Math.floor(((min%1440)+1440)%1440/60),m=((min%1440)+1440)%60;if(isNaN(m)){m=0;}const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
+function calcMealTimes(wt){
+  const[wh,wm]=(wt||'17:00').split(':').map(Number);
+  const wtMin=wh*60+wm;
+  const pre=wtMin-90;
+  const lunch=pre-210;
+  const mid=lunch-210;
+  const brk=mid-210;
+  const bridge=pre;
+  const dinner=bridge+210;
+  return{breakfast:minToDisplay(brk),midmorning:minToDisplay(mid),lunch:minToDisplay(lunch),preworkout:minToDisplay(pre),shake:'Post-Gym',restsnack:minToDisplay(bridge),dinner:minToDisplay(dinner)};
+}
+function getMealTime(key){const t=calcMealTimes(st.workoutTime);return t[key]||MD[key]?.time||'';}
 
 function macrow(items){return '<div class="mr">'+items.map(m=>'<div class="mc"><div class="v" style="color:'+m.c+'">'+m.v+'</div><div class="l">'+m.l+'</div></div>').join('')+'</div>';}
 function pbar(v,max,c,l){const p=Math.min(100,(v/max)*100);return '<div style="margin-bottom:10px"><div class="rb" style="margin-bottom:4px"><span class="lbl">'+l+'</span><span style="font-size:11px">'+v+'g</span></div><div class="pbw"><div class="pbf" style="width:'+p+'%;background:'+c+'"></div></div></div>';}
@@ -553,30 +565,31 @@ function rHist(){
 
 // ── SETTINGS ──
 function rSettings(){
+  const wt=st.workoutTime||'17:00';
+  const times=calcMealTimes(wt);
   const rows=[
     ['breakfast','Breakfast'],['midmorning','Mid-Morning'],['lunch','Lunch'],
-    ['preworkout','Pre-Workout'],['restsnack','Protein Bridge'],['dinner','Dinner'],
-    ['shake','Recovery Shake'],
+    ['preworkout','Pre-Workout'],['shake','Recovery Shake'],
+    ['restsnack','Protein Bridge (rest days)'],['dinner','Dinner (rest days)'],
   ];
   return '<div class="pg">'
     +'<div class="ph"><div class="lbl" style="margin-bottom:6px">Adjust Anytime</div><div class="h1" style="font-size:40px;color:'+TXT+'">SETTINGS</div></div>'
+    +'<div class="card" style="border-color:#A5D6A7;background:#F1F8E9;margin-bottom:12px">'
+    +'<div class="lbl" style="color:'+A+';margin-bottom:8px">Workout Time</div>'
+    +'<div style="font-size:11px;color:'+MUT+';margin-bottom:14px;line-height:1.6">Set when you lift and all meal times calculate automatically — pre-workout 90 min before, each prior meal 3.5 hrs back.</div>'
+    +'<div style="display:flex;align-items:center;gap:14px">'
+    +'<div style="flex:1"><div class="lbl" style="margin-bottom:6px">I work out at</div>'
+    +'<input type="time" id="wt_input" value="'+wt+'" style="width:100%;background:#fff;border:2px solid '+A+';border-radius:10px;padding:12px 14px;font-size:18px;color:'+TXT+';-webkit-appearance:none;font-family:monospace"></div>'
+    +'</div></div>'
     +'<div class="card">'
-    +'<div class="lbl" style="margin-bottom:4px">Meal Times</div>'
-    +'<div style="font-size:10px;color:'+DIM+';margin-bottom:14px;line-height:1.5">Tap a time to adjust. Changes apply immediately across the app.</div>'
-    +rows.map(([key,label],i)=>{
-      const isPostGym=MD[key]?.time==='Post-Gym';
-      const cur=(st.mealTimes||{})[key]||to24(MD[key]?.time||'');
-      const isCustom=!!(st.mealTimes||{})[key];
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:'+(i<rows.length-1?'1px solid '+BDR:'none')+'">'
-        +'<div><div style="font-size:12px;color:'+TXT+'">'+label+'</div>'+(isCustom?'<div style="font-size:8px;color:'+A+';letter-spacing:.06em">CUSTOM</div>':'')+'</div>'
-        +(isPostGym
-          ?'<span style="font-size:10px;color:'+DIM+'">Post-Gym</span>'
-          :'<input type="time" id="ti_'+key+'" value="'+cur+'" style="background:'+C2+';border:1px solid '+BDR+';border-radius:8px;padding:6px 10px;font-size:13px;color:'+TXT+';-webkit-appearance:none">'
-        )+'</div>';
-    }).join('')
+    +'<div class="lbl" style="margin-bottom:12px">Resulting Schedule</div>'
+    +rows.map(([key,label],i)=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:'+(i<rows.length-1?'1px solid '+BDR:'none')+'">'
+      +'<span style="font-size:11px;color:'+MUT+'">'+label+'</span>'
+      +'<span style="font-size:13px;font-weight:700;color:'+TXT+'">'+times[key]+'</span>'
+      +'</div>').join('')
     +'</div>'
-    +'<button class="btn" style="background:'+A+';color:#fff;font-size:18px" data-a="savetimes">SAVE & CLOSE</button>'
-    +'<button class="bghost" data-a="resettimes">Reset to Defaults</button>'
+    +'<button class="btn" style="background:'+A+';color:#fff;font-size:18px" data-a="savewt">SAVE & CLOSE</button>'
+    +'<button class="bghost" data-a="resetwt">Reset to Default (5:00 PM)</button>'
     +'</div>';
 }
 
@@ -617,8 +630,8 @@ function act(a,el){
     case'eday':st.eatDay=parseInt(el.dataset.i);st.mealD=null;break;
     case'mdetail':st.mealD=parseInt(el.dataset.i);break;
     case'swaptab':if(!st.mealSwapIdx)st.mealSwapIdx={};st.mealSwapIdx[el.dataset.k]=parseInt(el.dataset.i);break;
-    case'savetimes':{if(!st.mealTimes)st.mealTimes={};['breakfast','midmorning','lunch','preworkout','restsnack','dinner'].forEach(key=>{const v=document.getElementById('ti_'+key)?.value;if(v){st.mealTimes[key]=v;}});save();st.tab='home';}break;
-    case'resettimes':st.mealTimes={};save();break;
+    case'savewt':{const v=document.getElementById('wt_input')?.value;if(v)st.workoutTime=v;save();st.tab='home';}break;
+    case'resetwt':st.workoutTime='17:00';save();break;
     case'mback':st.mealD=null;break;
     case'lsel':st.liftW=parseInt(el.dataset.i);break;
     case'lback':st.liftW=null;break;

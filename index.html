@@ -255,11 +255,11 @@ const st={
   startDate:null,sessions:[],tab:'home',
   logPhase:'select',logWT:null,logExIdx:0,logData:[],logSets:[],logLastW:null,
   eatDay:(new Date().getDay()+6)%7,
-  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false,workoutTime:'17:00'
+  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false,workoutTime:'17:00',firstMealTime:'05:00'
 };
 
-function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));localStorage.setItem('lb_wt',st.workoutTime||'17:00');}catch(e){}}
-function load(){try{st.startDate=localStorage.getItem('lb_sd')||null;st.sessions=JSON.parse(localStorage.getItem('lb_sx')||'[]');st.workoutTime=localStorage.getItem('lb_wt')||'17:00';}catch(e){}}
+function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));localStorage.setItem('lb_wt',st.workoutTime||'17:00');localStorage.setItem('lb_fmt',st.firstMealTime||'05:00');}catch(e){}}
+function load(){try{st.startDate=localStorage.getItem('lb_sd')||null;st.sessions=JSON.parse(localStorage.getItem('lb_sx')||'[]');st.workoutTime=localStorage.getItem('lb_wt')||'17:00';st.firstMealTime=localStorage.getItem('lb_fmt')||'05:00';}catch(e){}}
 function tkey(){return new Date().toISOString().slice(0,10);}
 function gw(){if(!st.startDate)return 1;return Math.max(1,Math.floor((Date.now()-new Date(st.startDate))/604800000)+1);}
 function idl(w){return DW.includes(w);}
@@ -270,19 +270,22 @@ function allprogs(){return[...new Set(st.sessions.slice(-6).flatMap(s=>s.progs||
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 function fmt12(t){const[h,m]=t.split(':').map(Number);const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
 function to24(s){if(!s||s==='Post-Gym')return'';const p=s.trim().split(/\s+/);if(p.length<2)return'';let[h,m]=p[0].split(':').map(Number);const ap=p[1].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return(h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
-function minToDisplay(min){let h=Math.floor(((min%1440)+1440)%1440/60),m=((min%1440)+1440)%60;if(isNaN(m)){m=0;}const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
-function calcMealTimes(wt){
-  const[wh,wm]=(wt||'17:00').split(':').map(Number);
-  const wtMin=wh*60+wm;
+function minToDisplay(min){const tot=((min%1440)+1440)%1440;const h=Math.floor(tot/60),m=tot%60;const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
+function parseMin(t){const[h,m]=(t||'00:00').split(':').map(Number);return h*60+m;}
+function calcMealTimes(fmt,wt){
+  const fm=parseMin(fmt||'05:00');
+  const wtMin=parseMin(wt||'17:00');
   const pre=wtMin-90;
-  const lunch=pre-210;
-  const mid=lunch-210;
-  const brk=mid-210;
+  const window=pre-fm;
+  if(window<120)return{breakfast:minToDisplay(fm),midmorning:'--',lunch:'--',preworkout:minToDisplay(pre),shake:'Post-Gym',restsnack:minToDisplay(pre),dinner:minToDisplay(pre+210),warning:'Workout is too soon after first meal for a full schedule.'};
+  const gap=Math.round(window/3);
+  const mid=fm+gap;
+  const lunch=fm+2*gap;
   const bridge=pre;
-  const dinner=bridge+210;
-  return{breakfast:minToDisplay(brk),midmorning:minToDisplay(mid),lunch:minToDisplay(lunch),preworkout:minToDisplay(pre),shake:'Post-Gym',restsnack:minToDisplay(bridge),dinner:minToDisplay(dinner)};
+  const dinner=bridge+gap;
+  return{breakfast:minToDisplay(fm),midmorning:minToDisplay(mid),lunch:minToDisplay(lunch),preworkout:minToDisplay(pre),shake:'Post-Gym',restsnack:minToDisplay(bridge),dinner:minToDisplay(dinner),gap:gap};
 }
-function getMealTime(key){const t=calcMealTimes(st.workoutTime);return t[key]||MD[key]?.time||'';}
+function getMealTime(key){const t=calcMealTimes(st.firstMealTime,st.workoutTime);return t[key]||MD[key]?.time||'';}
 
 function macrow(items){return '<div class="mr">'+items.map(m=>'<div class="mc"><div class="v" style="color:'+m.c+'">'+m.v+'</div><div class="l">'+m.l+'</div></div>').join('')+'</div>';}
 function pbar(v,max,c,l){const p=Math.min(100,(v/max)*100);return '<div style="margin-bottom:10px"><div class="rb" style="margin-bottom:4px"><span class="lbl">'+l+'</span><span style="font-size:11px">'+v+'g</span></div><div class="pbw"><div class="pbf" style="width:'+p+'%;background:'+c+'"></div></div></div>';}
@@ -630,8 +633,8 @@ function act(a,el){
     case'eday':st.eatDay=parseInt(el.dataset.i);st.mealD=null;break;
     case'mdetail':st.mealD=parseInt(el.dataset.i);break;
     case'swaptab':if(!st.mealSwapIdx)st.mealSwapIdx={};st.mealSwapIdx[el.dataset.k]=parseInt(el.dataset.i);break;
-    case'savewt':{const v=document.getElementById('wt_input')?.value;if(v)st.workoutTime=v;save();st.tab='home';}break;
-    case'resetwt':st.workoutTime='17:00';save();break;
+    case'savewt':{const wv=document.getElementById('wt_input')?.value;const fv=document.getElementById('fmt_input')?.value;if(wv)st.workoutTime=wv;if(fv)st.firstMealTime=fv;save();st.tab='home';}break;
+    case'resetwt':st.workoutTime='17:00';st.firstMealTime='05:00';save();break;
     case'mback':st.mealD=null;break;
     case'lsel':st.liftW=parseInt(el.dataset.i);break;
     case'lback':st.liftW=null;break;

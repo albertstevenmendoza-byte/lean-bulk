@@ -379,7 +379,7 @@ function rLogEx(){
     +(st.showSwapPicker&&alts.length?'<div class="card" style="margin-bottom:12px;border-color:'+c+'33">'
       +'<div class="lbl" style="color:'+c+';margin-bottom:10px">Select Alternative</div>'
       +'<div style="display:flex;flex-direction:column;gap:6px">'
-      +[ex.originalN||ex.n,...alts.filter(a=>a!==(ex.originalN||ex.n)&&a!==ex.n)].map((nm,i)=>'<button data-a="doswap" data-name="'+esc(nm)+'" style="background:'+(nm===ex.n?c:'#EDECEA')+';border:1px solid '+(nm===ex.n?c:BDR)+';border-radius:10px;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:'+(nm===ex.n?'#fff':TXT)+';text-align:left;cursor:pointer">'+(i===0?'Default: ':'')+esc(nm)+(nm===ex.n?' \u2713':'')+'</button>').join('')
+      +[ex.originalN||ex.n,...alts.filter(a=>a!==(ex.originalN||ex.n)&&a!==ex.n)].map((nm,i)=>'<button data-a="doswap" data-name="'+esc(nm)+'" style="background:'+(nm===ex.n?c:'#EDECEA')+';border:1px solid '+(nm===ex.n?c:BDR)+';border-radius:10px;padding:12px 14px;font-size:11px;color:'+(nm===ex.n?'#fff':TXT)+';text-align:left;cursor:pointer">'+(i===0?'Default: ':'')+esc(nm)+(nm===ex.n?' \u2713':'')+'</button>').join('')
       +'</div></div>':'')
     +(lastW?'<div class="card" style="margin-bottom:12px"><div class="rb">'
       +'<div><div class="lbl" style="margin-bottom:4px">'+(last.name&&last.name!==ex.n?'Last Session ('+esc(last.name)+')':'Last Session')+'</div><div style="font-size:15px;font-weight:500;color:'+TXT+'">'+lastW+' lbs</div></div>'

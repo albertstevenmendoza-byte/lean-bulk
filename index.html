@@ -569,33 +569,35 @@ function rHist(){
 // ── SETTINGS ──
 function rSettings(){
   const wt=st.workoutTime||'17:00';
-  const times=calcMealTimes(wt);
+  const times=calcMealTimes('05:00',wt);
   const rows=[
-    ['breakfast','Breakfast'],['midmorning','Mid-Morning'],['lunch','Lunch'],
-    ['preworkout','Pre-Workout'],['shake','Recovery Shake'],
+    ['breakfast','Breakfast (fixed at 5:00 AM)'],['midmorning','Mid-Morning'],
+    ['lunch','Lunch'],['preworkout','Pre-Workout'],['shake','Recovery Shake'],
     ['restsnack','Protein Bridge (rest days)'],['dinner','Dinner (rest days)'],
   ];
+  const gapStr=times.gap?Math.floor(times.gap/60)+'h '+(times.gap%60?times.gap%60+'m ':'')+'gaps':'';
   return '<div class="pg">'
     +'<div class="ph"><div class="lbl" style="margin-bottom:6px">Adjust Anytime</div><div class="h1" style="font-size:40px;color:'+TXT+'">SETTINGS</div></div>'
+    +(times.warning?'<div class="card" style="border-color:#FFD54F;background:#FFFDE7;margin-bottom:12px"><div style="font-size:11px;color:'+W+'">⚠ '+times.warning+'</div></div>':'')
     +'<div class="card" style="border-color:#A5D6A7;background:#F1F8E9;margin-bottom:12px">'
-    +'<div class="lbl" style="color:'+A+';margin-bottom:8px">Workout Time</div>'
-    +'<div style="font-size:11px;color:'+MUT+';margin-bottom:14px;line-height:1.6">Set when you lift and all meal times calculate automatically — pre-workout 90 min before, each prior meal 3.5 hrs back.</div>'
-    +'<div style="display:flex;align-items:center;gap:14px">'
-    +'<div style="flex:1"><div class="lbl" style="margin-bottom:6px">I work out at</div>'
-    +'<input type="time" id="wt_input" value="'+wt+'" style="width:100%;background:#fff;border:2px solid '+A+';border-radius:10px;padding:12px 14px;font-size:18px;color:'+TXT+';-webkit-appearance:none;font-family:monospace"></div>'
-    +'</div></div>'
+    +'<div class="lbl" style="color:'+A+';margin-bottom:12px">Schedule Anchors</div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fff;border:1px solid '+BDR+';border-radius:10px;margin-bottom:10px">'
+    +'<div><div class="lbl" style="margin-bottom:2px">Breakfast</div><div style="font-size:9px;color:'+DIM+'">Always fixed</div></div>'
+    +'<div class="h1" style="font-size:22px;color:'+A+'">5:00 AM</div>'
+    +'</div>'
+    +'<div class="lbl" style="margin-bottom:8px">I work out at</div>'
+    +'<input type="time" id="wt_input" value="'+wt+'" style="width:100%;background:#fff;border:2px solid '+A+';border-radius:10px;padding:13px 14px;font-size:22px;color:'+TXT+';-webkit-appearance:none">'
+    +'</div>'
     +'<div class="card">'
-    +'<div class="lbl" style="margin-bottom:12px">Resulting Schedule</div>'
-    +rows.map(([key,label],i)=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:'+(i<rows.length-1?'1px solid '+BDR:'none')+'">'
-      +'<span style="font-size:11px;color:'+MUT+'">'+label+'</span>'
-      +'<span style="font-size:13px;font-weight:700;color:'+TXT+'">'+times[key]+'</span>'
-      +'</div>').join('')
+    +'<div class="rb" style="margin-bottom:12px"><div class="lbl">Resulting Schedule</div>'
+    +(gapStr?'<div style="font-size:9px;color:'+A+';font-weight:700;letter-spacing:.06em">'+gapStr+'</div>':'')
+    +'</div>'
+    +rows.map(([key,label],i)=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:'+(i<rows.length-1?'1px solid '+BDR:'none')+'"><span style="font-size:11px;color:'+MUT+'">'+label+'</span><span style="font-size:13px;font-weight:700;color:'+(key==="breakfast"?A:TXT)+'">'+times[key]+'</span></div>').join('')
     +'</div>'
     +'<button class="btn" style="background:'+A+';color:#fff;font-size:18px" data-a="savewt">SAVE & CLOSE</button>'
     +'<button class="bghost" data-a="resetwt">Reset to Default (5:00 PM)</button>'
     +'</div>';
 }
-
 // ── NAV ──
 function rNav(){
   const tabs=[{id:'home',icon:'\u25c8',l:'HOME'},{id:'log',icon:'\u2295',l:'LOG'},{id:'eat',icon:'\u25c9',l:'EAT'},{id:'lift',icon:'\u25b3',l:'LIFT'},{id:'shakes',icon:'\u25a6',l:'SHAKES'},{id:'history',icon:'\u25ce',l:'HIST'},{id:'settings',icon:'\u2699',l:'SET'}];

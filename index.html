@@ -255,7 +255,7 @@ const st={
   startDate:null,sessions:[],tab:'home',
   logPhase:'select',logWT:null,logExIdx:0,logData:[],logSets:[],logLastW:null,
   eatDay:(new Date().getDay()+6)%7,
-  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false,workoutTime:'17:00',firstMealTime:'05:00'
+  liftW:null,histIdx:null,mealD:null,shakeD:null,mealSwapIdx:{},showSwapPicker:false,workoutTime:'17:00',firstMealTime:'05:00',timerActive:false,timerRemaining:0,timerTotal:0
 };
 
 function save(){try{localStorage.setItem('lb_sd',st.startDate||'');localStorage.setItem('lb_sx',JSON.stringify(st.sessions));localStorage.setItem('lb_wt',st.workoutTime||'17:00');localStorage.setItem('lb_fmt',st.firstMealTime||'05:00');}catch(e){}}
@@ -268,6 +268,70 @@ function glw(idx){if(!st.logWT)return null;const s=gls(st.logWT);if(!s)return nu
 function gprogs(sess){return sess.exs.filter(ex=>ex.sets.length>0&&ex.sets.every(s=>s.r>=(rtop(ex.r))&&s.w>0)).map(ex=>ex.n);}
 function allprogs(){return[...new Set(st.sessions.slice(-6).flatMap(s=>s.progs||[]))].slice(0,5);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+// ── REST TIMER ──
+let timerInterval=null;
+
+function getRestSecs(reps,deload){
+  const r=reps.replace(/–/g,'-');
+  let s=120;
+  if(r==='5-6'||r==='6-8')s=180;
+  else if(r==='8-12'||r==='10-12')s=120;
+  else if(r==='12-15')s=90;
+  else if(r==='15-20')s=60;
+  return deload?Math.round(s*0.67):s;
+}
+
+function getRestLabel(secs){
+  if(secs>=180)return'Heavy compound · 3 min';
+  if(secs>=120)return'Compound · 2 min';
+  if(secs>=90)return'Isolation · 90 sec';
+  return'Isolation · 60 sec';
+}
+
+function startRestTimer(reps,deload){
+  if(timerInterval)clearInterval(timerInterval);
+  const secs=getRestSecs(reps,deload);
+  st.timerActive=true;st.timerRemaining=secs;st.timerTotal=secs;
+  timerInterval=setInterval(()=>{
+    if(st.timerRemaining>0){st.timerRemaining--;tickTimer();}
+    else{clearInterval(timerInterval);timerInterval=null;if(navigator.vibrate)navigator.vibrate([200,100,200]);tickTimer();}
+  },1000);
+}
+
+function stopRestTimer(){
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  st.timerActive=false;st.timerRemaining=0;st.timerTotal=0;
+}
+
+function renderTimerHtml(){
+  const r=st.timerRemaining,total=st.timerTotal,done=r<=0;
+  const pct=done?1:(total-r)/total;
+  const circ=295.3,offset=circ*(1-pct);
+  const m=Math.floor(r/60),s=r%60;
+  const timeStr=m+':'+(s<10?'0':'')+s;
+  const color=done?A:(r<15?W:A);
+  return `<div id="rest_timer" style="background:${done?'#F1F8E9':'#fff'};border:1px solid ${done?'#A5D6A7':BDR};border-radius:18px;padding:20px 20px 14px;margin-bottom:12px;text-align:center">
+    <div class="lbl" style="color:${color};margin-bottom:10px">${done?'✓ REST COMPLETE — YOU’RE READY':'REST TIMER'}</div>
+    <div style="position:relative;display:inline-block;margin-bottom:10px">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="47" fill="none" stroke="${BDR}" stroke-width="6"/>
+        <circle cx="50" cy="50" r="47" fill="none" stroke="${color}" stroke-width="6" stroke-dasharray="${circ}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round" transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .8s ease"/>
+      </svg>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:${done?26:30}px;font-weight:800;color:${color};line-height:1">${done?'GO':timeStr}</div>
+        ${done?'':'<div style="font-size:7px;color:'+DIM+';letter-spacing:.1em;margin-top:2px">MIN:SEC</div>'}
+      </div>
+    </div>
+    <div style="font-size:10px;color:${DIM};margin-bottom:${done?0:10}px">${getRestLabel(total)}</div>
+    ${!done?`<button class="bsm" data-a="skiptimer" style="width:100%;padding:8px">SKIP REST</button>`:''}
+  </div>`;
+}
+
+function tickTimer(){
+  const el=document.getElementById('rest_timer');
+  if(el)el.outerHTML=renderTimerHtml();
+}
+
 function fmt12(t){const[h,m]=t.split(':').map(Number);const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
 function to24(s){if(!s||s==='Post-Gym')return'';const p=s.trim().split(/\s+/);if(p.length<2)return'';let[h,m]=p[0].split(':').map(Number);const ap=p[1].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return(h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
 function minToDisplay(min){const tot=((min%1440)+1440)%1440;const h=Math.floor(tot/60),m=tot%60;const ap=h>=12?'PM':'AM';const h12=h%12||12;return h12+':'+(m<10?'0':'')+m+' '+ap;}
@@ -405,6 +469,7 @@ function rLogEx(){
       +'<div><div class="lbl" style="margin-bottom:4px">'+(last.name&&last.name!==ex.n?'Last Session ('+esc(last.name)+')':'Last Session')+'</div><div style="font-size:15px;font-weight:500;color:'+TXT+'">'+lastW+' lbs</div></div>'
       +(dl&&dlW?'<div style="text-align:right"><div class="lbl" style="color:'+W+';margin-bottom:4px">Deload 55%</div><div style="font-size:15px;color:'+W+';font-weight:500">'+dlW+' lbs</div></div>':'')
       +'</div></div>':'')
+    +(st.timerActive?renderTimerHtml():'')
     +(st.logSets.length?'<div class="card" style="margin-bottom:12px">'
       +'<div class="rb" style="margin-bottom:8px"><div class="lbl">Sets Completed</div><button class="bsm" data-a="undo">UNDO LAST</button></div>'
       +st.logSets.map((s,i)=>'<div class="sr'+(s.r>=top?' hit':'')+'"><span class="sn">Set '+(i+1)+'</span><span>'+s.w+' lbs \u00d7 '+s.r+(s.r>=top?' \u2713':'')+'</span></div>').join('')
@@ -617,20 +682,21 @@ function render(){
 function act(a,el){
   switch(a){
     case'setup':st.startDate=tkey();st.sessions=[];save();break;
-    case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;st.shakeD=null;st.mealSwapIdx={};break;
+    case'tab':st.tab=el.dataset.t;if(st.tab==='log')st.logPhase='select';st.histIdx=null;st.liftW=null;st.mealD=null;st.shakeD=null;st.mealSwapIdx={};stopRestTimer();break;
     case'goto-log':st.tab='log';st.logPhase='select';break;
     case'start':{const t=el.dataset.t,wk=WK[t];st.logWT=t;st.logData=wk.ex.map(e=>({n:e.n,originalN:e.n,r:e.r,s:e.s,rpe:e.rpe,note:e.note||null,completedSets:[]}));st.logExIdx=0;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;st.logPhase='ex';}break;
     case'showswap':st.showSwapPicker=!st.showSwapPicker;break;
+    case'skiptimer':stopRestTimer();break;
     case'doswap':{const nm=el.dataset.name;st.logData=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,n:nm}:ex);st.showSwapPicker=false;}break;
-    case'addset':{const w=parseFloat(document.getElementById('wi')?.value),r=parseInt(document.getElementById('ri')?.value);if(!w||!r||w<=0||r<=0)return;st.logLastW=w;st.logSets=[...st.logSets,{w,r}];}break;
+    case'addset':{const w=parseFloat(document.getElementById('wi')?.value),r=parseInt(document.getElementById('ri')?.value);if(!w||!r||w<=0||r<=0)return;st.logLastW=w;st.logSets=[...st.logSets,{w,r}];const ex=st.logData[st.logExIdx];if(st.logSets.length<ex.s){startRestTimer(ex.r,idl(gw()));}else{stopRestTimer();}}break;
     case'undo':if(st.logSets.length)st.logSets=st.logSets.slice(0,-1);break;
     case'nextex':{
       const upd=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,completedSets:st.logSets}:ex);
       st.logData=upd;
-      if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;}
+      if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;stopRestTimer();}
       else{const sess={date:tkey(),week:gw(),wt:st.logWT,dl:idl(gw()),exs:upd.map((ex,i)=>({slot:i,n:ex.n,originalN:ex.originalN||ex.n,r:ex.r,sets:ex.completedSets}))};sess.progs=gprogs(sess);st.sessions=[...st.sessions.filter(s=>!(s.date===sess.date&&s.wt===sess.wt)),sess];save();st.logPhase='done';}
     }break;
-    case'skipex':{const upd=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,completedSets:[]}:ex);st.logData=upd;if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;}else st.logPhase='done';}break;
+    case'skipex':{const upd=st.logData.map((ex,i)=>i===st.logExIdx?{...ex,completedSets:[]}:ex);st.logData=upd;if(st.logExIdx<st.logData.length-1){st.logExIdx++;st.logSets=[];st.logLastW=null;st.showSwapPicker=false;stopRestTimer();}else st.logPhase='done';}break;
     case'resetlog':st.logPhase='select';break;
     case'eday':st.eatDay=parseInt(el.dataset.i);st.mealD=null;break;
     case'mdetail':st.mealD=parseInt(el.dataset.i);break;

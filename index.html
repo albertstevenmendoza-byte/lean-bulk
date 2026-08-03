@@ -93,9 +93,18 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 16px rgba(0,0,0,0.22);
   }
   .card .ex-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom: 11px; }
+  .ex-name-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .card .ex-name{ font-weight:700; font-size: 16.5px; }
   .card .ex-target{ font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); margin-top:3px; }
   .card .ex-last{ font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+  .swap-btn{
+    display:flex; align-items:center; gap:4px;
+    background: var(--surface-2); border:1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 3px 7px; font-family: var(--font-mono); font-size: 10.5px; font-weight:600;
+  }
+  .swap-btn svg{ width:11px; height:11px; }
+  .swap-btn:active{ border-color: var(--accent); color: var(--accent); }
 
   .status-dot{ width:11px; height:11px; border-radius:50%; background: var(--border); margin-top:4px; flex:0 0 auto; }
   .status-dot.ready{ background: var(--accent); box-shadow: 0 0 0 4px rgba(62,203,82,0.22); animation: pulse 1.8s infinite; }
@@ -211,6 +220,34 @@
   .btn-danger svg{ width:14px; height:14px; }
   input[type="date"]{ background: var(--surface-2); border:1.5px solid var(--border); color:var(--text); border-radius:6px; padding:8px; font-family: var(--font-mono); font-size:13.5px; }
   #importFile{ display:none; }
+
+  /* Exercise picker modal */
+  .modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,0.62); z-index: 100; display:flex; align-items:flex-end; }
+  .modal-backdrop[hidden]{ display:none; }
+  .modal-sheet{
+    background: var(--surface); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);
+    width:100%; max-height: 78vh; overflow-y:auto; padding: 18px 18px 22px;
+    border:1px solid var(--border); border-bottom:none;
+    animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp{ from{ transform: translateY(24px); opacity:0.4; } to{ transform: translateY(0); opacity:1; } }
+  .modal-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; }
+  .modal-title{ font-weight:700; font-size:17px; }
+  .modal-sub{ font-family: var(--font-mono); font-size:12px; color: var(--muted); margin-top:4px; }
+  .modal-close{ background: var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px; color: var(--text-secondary); flex:0 0 auto; }
+  .modal-close svg{ width:15px; height:15px; display:block; }
+  .modal-options{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .option-btn{
+    display:flex; align-items:center; justify-content:space-between; text-align:left;
+    background: var(--surface-2); border:1.5px solid var(--border); border-radius: var(--radius-md);
+    padding:13px 14px; font-size:14.5px; font-weight:600; color: var(--text);
+  }
+  .option-btn.selected{ border-color: var(--accent); color: var(--accent); background: rgba(62,203,82,0.12); }
+  .option-btn .check{ width:16px; height:16px; color: var(--accent); flex:0 0 auto; }
+  .option-btn.reset-option{ color: var(--muted); font-weight:600; font-family: var(--font-mono); font-size:12.5px; border-style:dashed; }
+  .modal-custom{ display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border); }
+  .modal-custom input{ flex:1; background: var(--surface-2); border:1.5px solid var(--border); color:var(--text); border-radius: var(--radius-sm); padding:11px 12px; font-size:14px; }
+  .modal-custom button{ background: var(--accent); color:#04140a; font-weight:700; border:none; border-radius: var(--radius-sm); padding: 11px 16px; font-size:13.5px; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -304,7 +341,7 @@
         <span class="row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 20 7"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><line x1="9" y1="7" x2="9" y2="4"/><line x1="15" y1="7" x2="15" y2="4"/><line x1="9" y1="4" x2="15" y2="4"/></svg></span>
         <div class="row-text">
           <div class="label">Reset all data</div>
-          <div class="desc">Clears every logged session on this device</div>
+          <div class="desc">Clears every logged session and exercise swap on this device</div>
         </div>
         <button class="btn-danger" id="resetBtn">Reset</button>
       </div>
@@ -333,6 +370,25 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-backdrop" id="pickerBackdrop" hidden>
+  <div class="modal-sheet" id="pickerSheet">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="pickerTitle">Swap exercise</div>
+        <div class="modal-sub">Sets, reps, and rest time stay the same — only the exercise changes</div>
+      </div>
+      <button class="modal-close" id="pickerClose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+      </button>
+    </div>
+    <div class="modal-options" id="pickerOptions"></div>
+    <div class="modal-custom">
+      <input type="text" id="pickerCustomInput" placeholder="Or type a custom exercise…">
+      <button id="pickerCustomBtn">Use</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -343,45 +399,76 @@
   const RING_CIRC = 2 * Math.PI * RING_R;
 
   const CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="15.5" y2="14"/></svg>';
-  const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
+  const CHECK_ICON = '<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
+  const SWAP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 4 3 8 7 12"/><line x1="3" y1="8" x2="21" y2="8"/><polyline points="17 20 21 16 17 12"/><line x1="21" y1="16" x2="3" y2="16"/></svg>';
+
+  // ---------- Exercise library (alternatives grouped by movement pattern) ----------
+  const EXERCISE_LIBRARY = {
+    horizontalPressHeavy: ["Bench Press","Dumbbell Bench Press","Machine Chest Press","Smith Machine Bench Press","Floor Press","Football Bar Bench Press"],
+    horizontalPullHeavy: ["Barbell Row","Pendlay Row","T-Bar Row","Chest-Supported Row","Seal Row","Meadows Row"],
+    verticalPressHeavy: ["Overhead Press","Dumbbell Shoulder Press","Landmine Press","Machine Shoulder Press","Push Press"],
+    verticalPullHeavy: ["Weighted Pull-Up","Weighted Chin-Up","Lat Pulldown","Neutral-Grip Pull-Up","Assisted Pull-Up"],
+    tricepsCompound: ["Dip","Close-Grip Bench Press","Close-Grip Push-Up","Machine Dip","JM Press"],
+    bicepsCompound: ["EZ-Bar Curl","Barbell Curl","Dumbbell Curl","Cable Curl","Preacher Curl"],
+    squatHeavy: ["Squat","Front Squat","Safety Bar Squat","Hack Squat Machine","Leg Press","Belt Squat"],
+    hinge: ["Romanian Deadlift","Conventional Deadlift","Trap Bar Deadlift","Good Morning","Single-Leg RDL","Cable Pull-Through"],
+    quadPressMachine: ["Leg Press","Hack Squat Machine","Pendulum Squat","Belt Squat","Smith Machine Squat"],
+    calfStanding: ["Standing Calf Raise","Leg Press Calf Raise","Smith Machine Calf Raise","Donkey Calf Raise"],
+    inclinePress: ["Incline DB Press","Incline Barbell Press","Incline Machine Press","Incline Smith Press"],
+    flatPressMachine: ["Machine Chest Press","Cable Chest Press","Smith Machine Flat Press","Push-Up","Bench Press"],
+    dbShoulderPress: ["Seated DB Shoulder Press","Standing DB Press","Machine Shoulder Press","Arnold Press","Cable Shoulder Press"],
+    lateralDelt: ["Lateral Raise","Cable Lateral Raise","Machine Lateral Raise","Lean-Away Lateral Raise","Plate Lateral Raise"],
+    tricepsPushdown: ["Triceps Rope Pushdown","Straight-Bar Pushdown","V-Bar Pushdown","Single-Arm Cable Pushdown","Reverse-Grip Pushdown"],
+    tricepsOverhead: ["Overhead Triceps Extension","DB Overhead Extension","EZ-Bar Skull Crusher","Cable Skull Crusher","Machine Triceps Extension"],
+    verticalPullHyper: ["Lat Pulldown","Pull-Up","Chin-Up","Neutral-Grip Pulldown","Assisted Pull-Up"],
+    horizontalPullHyper: ["Chest-Supported Row","Seated Cable Row","T-Bar Row","Dumbbell Row","Machine High Row"],
+    rearDelt: ["Face Pull","Reverse Pec Deck","Cable Reverse Fly","DB Reverse Fly","Band Pull-Apart"],
+    bicepsIsolation: ["DB Curl","Cable Curl","Barbell Curl","Concentration Curl","Preacher Curl"],
+    bicepsNeutral: ["Hammer Curl","Cross-Body Hammer Curl","Rope Hammer Curl","Neutral-Grip DB Curl"],
+    quadDominantHyper: ["Front Squat","Hack Squat Machine","Pendulum Squat","Belt Squat","Goblet Squat"],
+    hamstringIsolation: ["Leg Curl","Lying Leg Curl","Seated Leg Curl","Nordic Curl","Single-Leg Curl"],
+    unilateralLeg: ["Walking Lunge","Bulgarian Split Squat","Reverse Lunge","Step-Up","Curtsy Lunge"],
+    quadIsolation: ["Leg Extension","Sissy Squat","Single-Leg Extension"],
+    calfSeated: ["Seated Calf Raise","Standing Calf Raise","Leg Press Calf Raise"]
+  };
 
   const PROGRAM = [
     { id:"upper-power", name:"Upper Power", type:"power", exercises:[
-      { name:"Bench Press", sets:4, range:[3,5], mainLift:true, restSeconds:180 },
-      { name:"Barbell Row", sets:4, range:[3,5], mainLift:true, restSeconds:180 },
-      { name:"Overhead Press", sets:3, range:[5,6], mainLift:true, restSeconds:150 },
-      { name:"Weighted Pull-Up", sets:3, range:[5,6], restSeconds:150 },
-      { name:"Dip / Close-Grip Bench", sets:3, range:[6,8], restSeconds:120 },
-      { name:"EZ-Bar Curl", sets:2, range:[6,8], restSeconds:90 }
+      { slotId:"up-bench", name:"Bench Press", sets:4, range:[3,5], mainLift:true, restSeconds:180, category:"horizontalPressHeavy" },
+      { slotId:"up-row", name:"Barbell Row", sets:4, range:[3,5], mainLift:true, restSeconds:180, category:"horizontalPullHeavy" },
+      { slotId:"up-ohp", name:"Overhead Press", sets:3, range:[5,6], mainLift:true, restSeconds:150, category:"verticalPressHeavy" },
+      { slotId:"up-pullup", name:"Weighted Pull-Up", sets:3, range:[5,6], restSeconds:150, category:"verticalPullHeavy" },
+      { slotId:"up-tricep", name:"Dip / Close-Grip Bench", sets:3, range:[6,8], restSeconds:120, category:"tricepsCompound" },
+      { slotId:"up-curl", name:"EZ-Bar Curl", sets:2, range:[6,8], restSeconds:90, category:"bicepsCompound" }
     ]},
     { id:"lower-power", name:"Lower Power", type:"power", exercises:[
-      { name:"Squat", sets:4, range:[3,5], mainLift:true, restSeconds:180 },
-      { name:"Romanian Deadlift", sets:3, range:[4,6], restSeconds:180 },
-      { name:"Leg Press", sets:3, range:[6,8], restSeconds:150 },
-      { name:"Standing Calf Raise", sets:4, range:[6,8], restSeconds:90 }
+      { slotId:"lp-squat", name:"Squat", sets:4, range:[3,5], mainLift:true, restSeconds:180, category:"squatHeavy" },
+      { slotId:"lp-rdl", name:"Romanian Deadlift", sets:3, range:[4,6], restSeconds:180, category:"hinge" },
+      { slotId:"lp-legpress", name:"Leg Press", sets:3, range:[6,8], restSeconds:150, category:"quadPressMachine" },
+      { slotId:"lp-calf", name:"Standing Calf Raise", sets:4, range:[6,8], restSeconds:90, category:"calfStanding" }
     ]},
     { id:"push", name:"Push Hypertrophy", type:"hypertrophy", exercises:[
-      { name:"Incline DB Press", sets:4, range:[8,12], restSeconds:120 },
-      { name:"Machine/Cable Chest Press", sets:3, range:[10,15], restSeconds:90 },
-      { name:"Seated DB Shoulder Press", sets:3, range:[8,12], restSeconds:120 },
-      { name:"Lateral Raise", sets:3, range:[12,15], restSeconds:60 },
-      { name:"Triceps Rope Pushdown", sets:3, range:[10,15], restSeconds:75 },
-      { name:"Overhead Triceps Extension", sets:2, range:[10,15], restSeconds:75 }
+      { slotId:"ph-incline", name:"Incline DB Press", sets:4, range:[8,12], restSeconds:120, category:"inclinePress" },
+      { slotId:"ph-chestpress", name:"Machine/Cable Chest Press", sets:3, range:[10,15], restSeconds:90, category:"flatPressMachine" },
+      { slotId:"ph-shoulderpress", name:"Seated DB Shoulder Press", sets:3, range:[8,12], restSeconds:120, category:"dbShoulderPress" },
+      { slotId:"ph-lateral", name:"Lateral Raise", sets:3, range:[12,15], restSeconds:60, category:"lateralDelt" },
+      { slotId:"ph-pushdown", name:"Triceps Rope Pushdown", sets:3, range:[10,15], restSeconds:75, category:"tricepsPushdown" },
+      { slotId:"ph-ohtricep", name:"Overhead Triceps Extension", sets:2, range:[10,15], restSeconds:75, category:"tricepsOverhead" }
     ]},
     { id:"pull", name:"Pull Hypertrophy", type:"hypertrophy", exercises:[
-      { name:"Lat Pulldown / Pull-Up", sets:4, range:[8,12], restSeconds:120 },
-      { name:"Chest-Supported Row", sets:3, range:[10,12], restSeconds:120 },
-      { name:"Face Pull", sets:3, range:[12,15], restSeconds:60 },
-      { name:"DB/Cable Curl", sets:3, range:[10,12], restSeconds:75 },
-      { name:"Hammer Curl", sets:2, range:[10,12], restSeconds:75 },
-      { name:"Rear Delt Fly", sets:2, range:[12,15], restSeconds:60 }
+      { slotId:"pl-lat", name:"Lat Pulldown / Pull-Up", sets:4, range:[8,12], restSeconds:120, category:"verticalPullHyper" },
+      { slotId:"pl-row", name:"Chest-Supported Row", sets:3, range:[10,12], restSeconds:120, category:"horizontalPullHyper" },
+      { slotId:"pl-facepull", name:"Face Pull", sets:3, range:[12,15], restSeconds:60, category:"rearDelt" },
+      { slotId:"pl-curl", name:"DB/Cable Curl", sets:3, range:[10,12], restSeconds:75, category:"bicepsIsolation" },
+      { slotId:"pl-hammer", name:"Hammer Curl", sets:2, range:[10,12], restSeconds:75, category:"bicepsNeutral" },
+      { slotId:"pl-reardelt", name:"Rear Delt Fly", sets:2, range:[12,15], restSeconds:60, category:"rearDelt" }
     ]},
     { id:"legs", name:"Legs Hypertrophy", type:"hypertrophy", exercises:[
-      { name:"Front Squat / Hack Squat", sets:3, range:[8,10], restSeconds:150 },
-      { name:"Leg Curl", sets:3, range:[10,12], restSeconds:90 },
-      { name:"Walking Lunge", sets:3, range:[10,12], restSeconds:90 },
-      { name:"Leg Extension", sets:2, range:[12,15], restSeconds:75 },
-      { name:"Seated Calf Raise", sets:3, range:[10,15], restSeconds:60 }
+      { slotId:"lg-frontsquat", name:"Front Squat / Hack Squat", sets:3, range:[8,10], restSeconds:150, category:"quadDominantHyper" },
+      { slotId:"lg-legcurl", name:"Leg Curl", sets:3, range:[10,12], restSeconds:90, category:"hamstringIsolation" },
+      { slotId:"lg-lunge", name:"Walking Lunge", sets:3, range:[10,12], restSeconds:90, category:"unilateralLeg" },
+      { slotId:"lg-legext", name:"Leg Extension", sets:2, range:[12,15], restSeconds:75, category:"quadIsolation" },
+      { slotId:"lg-calf", name:"Seated Calf Raise", sets:3, range:[10,15], restSeconds:60, category:"calfSeated" }
     ]}
   ];
 
@@ -390,9 +477,13 @@
   function loadData(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) return JSON.parse(raw);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(!parsed.overrides) parsed.overrides = {};
+        return parsed;
+      }
     }catch(e){ console.warn("Could not read storage", e); }
-    return { meta: { startDate: todayISO(), lastDeload: todayISO() }, logs: {} };
+    return { meta: { startDate: todayISO(), lastDeload: todayISO() }, logs: {}, overrides: {} };
   }
   function saveData(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -400,6 +491,17 @@
 
   let state = loadData();
   let activeDayId = PROGRAM[0].id;
+
+  function getExerciseName(slot){
+    return state.overrides[slot.slotId] || slot.name;
+  }
+  function findSlotById(slotId){
+    for(const day of PROGRAM){
+      const ex = day.exercises.find(e => e.slotId === slotId);
+      if(ex) return ex;
+    }
+    return null;
+  }
 
   function getExerciseLogs(name){
     return (state.logs[name] || []).slice().sort((a,b)=> a.date.localeCompare(b.date));
@@ -409,7 +511,8 @@
     return logs.length ? logs[logs.length-1] : null;
   }
   function isReadyToProgress(ex){
-    const last = getLastLog(ex.name);
+    const name = getExerciseName(ex);
+    const last = getLastLog(name);
     if(!last || !last.sets.length) return false;
     return last.sets.every(s => s.reps !== null && s.reps >= ex.range[1]);
   }
@@ -430,6 +533,70 @@
     t.classList.add("show");
     setTimeout(()=> t.classList.remove("show"), 1600);
   }
+
+  // ---------- Exercise swap picker ----------
+  let currentPickerSlot = null;
+
+  function openPicker(slot){
+    currentPickerSlot = slot;
+    document.getElementById("pickerTitle").textContent = `Swap: ${slot.name}`;
+    document.getElementById("pickerCustomInput").value = "";
+    renderPickerOptions(slot);
+    document.getElementById("pickerBackdrop").hidden = false;
+  }
+  function closePicker(){
+    document.getElementById("pickerBackdrop").hidden = true;
+    currentPickerSlot = null;
+  }
+  function renderPickerOptions(slot){
+    const wrap = document.getElementById("pickerOptions");
+    wrap.innerHTML = "";
+    const currentName = getExerciseName(slot);
+    const libList = EXERCISE_LIBRARY[slot.category] || [];
+    const names = [];
+    [slot.name, ...libList].forEach(n=>{ if(!names.includes(n)) names.push(n); });
+
+    names.forEach(n=>{
+      const btn = document.createElement("button");
+      btn.className = "option-btn" + (n === currentName ? " selected" : "");
+      btn.innerHTML = `<span>${n}</span>${n === currentName ? CHECK_ICON : ""}`;
+      btn.addEventListener("click", ()=> selectExercise(slot, n));
+      wrap.appendChild(btn);
+    });
+
+    if(state.overrides[slot.slotId]){
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "option-btn reset-option";
+      resetBtn.textContent = `↺ Reset to default (${slot.name})`;
+      resetBtn.addEventListener("click", ()=>{
+        delete state.overrides[slot.slotId];
+        saveData(); closePicker(); renderAll();
+        showToast("Reset to default");
+      });
+      wrap.appendChild(resetBtn);
+    }
+  }
+  function selectExercise(slot, name){
+    if(name === slot.name){
+      delete state.overrides[slot.slotId];
+    } else {
+      state.overrides[slot.slotId] = name;
+    }
+    saveData();
+    closePicker();
+    renderAll();
+    showToast(`Swapped to ${name}`);
+  }
+
+  document.getElementById("pickerClose").addEventListener("click", closePicker);
+  document.getElementById("pickerBackdrop").addEventListener("click", e=>{
+    if(e.target.id === "pickerBackdrop") closePicker();
+  });
+  document.getElementById("pickerCustomBtn").addEventListener("click", ()=>{
+    const val = document.getElementById("pickerCustomInput").value.trim();
+    if(!val || !currentPickerSlot) return;
+    selectExercise(currentPickerSlot, val);
+  });
 
   // ---------- Rest timer ----------
   // Persisted as startedAt + duration (not a live countdown), so it stays
@@ -540,9 +707,13 @@
   }
 
   document.getElementById("exerciseList").addEventListener("click", e=>{
-    const btn = e.target.closest(".rest-btn");
-    if(!btn) return;
-    startRest(btn.dataset.exercise, parseInt(btn.dataset.rest, 10));
+    const restBtn = e.target.closest(".rest-btn");
+    if(restBtn){ startRest(restBtn.dataset.exercise, parseInt(restBtn.dataset.rest, 10)); return; }
+    const swapBtn = e.target.closest(".swap-btn");
+    if(swapBtn){
+      const slot = findSlotById(swapBtn.dataset.slot);
+      if(slot) openPicker(slot);
+    }
   });
 
   document.getElementById("ringProgress").style.strokeDasharray = String(RING_CIRC);
@@ -587,26 +758,30 @@
     list.innerHTML = "";
 
     day.exercises.forEach(ex=>{
-      const last = getLastLog(ex.name);
+      const currentName = getExerciseName(ex);
+      const last = getLastLog(currentName);
       const ready = isReadyToProgress(ex);
       const loggedToday = last && last.date === todayISO();
 
       const card = document.createElement("div");
       card.className = "card";
-      card.dataset.exercise = ex.name;
+      card.dataset.exercise = currentName;
 
       const head = document.createElement("div");
       head.className = "ex-head";
       head.innerHTML = `
         <div>
-          <div class="ex-name">${ex.name}</div>
+          <div class="ex-name-row">
+            <span class="ex-name">${currentName}</span>
+            <button class="swap-btn" data-slot="${ex.slotId}">${SWAP_ICON}<span>Swap</span></button>
+          </div>
           <div class="ex-target">${ex.sets} sets × ${ex.range[0]}-${ex.range[1]} reps</div>
           ${last ? `<div class="ex-last">${loggedToday ? "today" : "last (" + last.date + ")"}: ${last.sets.map(s=>`${s.weight??"–"}×${s.reps??"–"}`).join(", ")}</div>` : `<div class="ex-last">no logs yet</div>`}
         </div>
         <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:7px;">
           <span class="status-dot ${ready ? "ready" : ""}"></span>
           ${ready ? `<span class="ready-badge">${CHECK_ICON}<span>Add weight</span></span>` : ""}
-          <button class="rest-btn" data-exercise="${ex.name}" data-rest="${ex.restSeconds}">${CLOCK_ICON}<span>${fmtTime(ex.restSeconds)}</span></button>
+          <button class="rest-btn" data-exercise="${currentName}" data-rest="${ex.restSeconds}">${CLOCK_ICON}<span>${fmtTime(ex.restSeconds)}</span></button>
         </div>
       `;
       card.appendChild(head);
@@ -646,7 +821,8 @@
     let loggedAny = false;
 
     day.exercises.forEach(ex=>{
-      const card = document.querySelector(`.card[data-exercise="${CSS.escape(ex.name)}"]`);
+      const currentName = getExerciseName(ex);
+      const card = document.querySelector(`.card[data-exercise="${CSS.escape(currentName)}"]`);
       if(!card) return;
       const rows = card.querySelectorAll(".set-row");
       const sets = [];
@@ -657,12 +833,12 @@
         sets.push({ weight: w === "" ? null : parseFloat(w), reps: r === "" ? null : parseInt(r,10) });
       });
       if(sets.some(s => s.weight !== null || s.reps !== null)){
-        if(!state.logs[ex.name]) state.logs[ex.name] = [];
-        const existingIdx = state.logs[ex.name].findIndex(l => l.date === date);
+        if(!state.logs[currentName]) state.logs[currentName] = [];
+        const existingIdx = state.logs[currentName].findIndex(l => l.date === date);
         if(existingIdx !== -1){
-          state.logs[ex.name][existingIdx] = { date, sets };
+          state.logs[currentName][existingIdx] = { date, sets };
         } else {
-          state.logs[ex.name].push({ date, sets });
+          state.logs[currentName].push({ date, sets });
         }
       }
     });
@@ -737,7 +913,8 @@
   }
 
   function renderLiftBlock(ex){
-    const logs = getExerciseLogs(ex.name);
+    const currentName = getExerciseName(ex);
+    const logs = getExerciseLogs(currentName);
     const points = logs
       .map(l=>{
         const topWeight = l.sets.reduce((max,s)=> (s.weight!==null && s.weight>max) ? s.weight : max, 0);
@@ -748,7 +925,7 @@
     const block = document.createElement("div");
     block.className = "lift-block";
     const pr = points.length ? Math.max(...points.map(p=>p.y)) : null;
-    block.innerHTML = `<div class="lift-title"><span>${ex.name}</span>${pr ? `<span class="pr">PR ${pr} lbs</span>` : ""}</div>`;
+    block.innerHTML = `<div class="lift-title"><span>${currentName}</span>${pr ? `<span class="pr">PR ${pr} lbs</span>` : ""}</div>`;
 
     if(points.length < 2){
       const note = document.createElement("div");
@@ -824,6 +1001,7 @@
       try{
         const parsed = JSON.parse(evt.target.result);
         if(parsed && parsed.logs && parsed.meta){
+          if(!parsed.overrides) parsed.overrides = {};
           state = parsed; saveData(); renderAll(); showToast("Backup imported");
         } else {
           showToast("File format not recognized");
@@ -833,8 +1011,8 @@
     reader.readAsText(file);
   });
   document.getElementById("resetBtn").addEventListener("click", ()=>{
-    if(confirm("This clears all logged sessions on this device. Continue?")){
-      state = { meta: { startDate: todayISO(), lastDeload: todayISO() }, logs: {} };
+    if(confirm("This clears all logged sessions and exercise swaps on this device. Continue?")){
+      state = { meta: { startDate: todayISO(), lastDeload: todayISO() }, logs: {}, overrides: {} };
       saveData(); renderAll(); showToast("Data reset");
     }
   });

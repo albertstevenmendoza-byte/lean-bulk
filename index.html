@@ -1135,8 +1135,39 @@
   }
   if(loadTimer()) ensureTimerPolling(); // resume polling if a timer survived a reload
 
-  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) renderTimerBar(); });
-  window.addEventListener("focus", renderTimerBar);
+  // Detect the calendar day changing while the app stays open — phone left
+  // unlocked overnight, tab backgrounded, etc. — and refresh anything
+  // date-dependent instead of leaving yesterday's data on screen.
+  let lastKnownDate = todayISO();
+  function checkDayRollover(){
+    const current = todayISO();
+    if(current === lastKnownDate) return;
+    lastKnownDate = current;
+    renderAll();
+    if(!document.getElementById("view-progress").hidden) renderProgress();
+    if(!document.getElementById("view-fuel").hidden) renderFuel();
+    if(!document.getElementById("view-settings").hidden) renderSettings();
+  }
+  function scheduleMidnightCheck(){
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 5);
+    setTimeout(()=>{
+      checkDayRollover();
+      scheduleMidnightCheck();
+    }, next - now);
+  }
+  scheduleMidnightCheck();
+
+  document.addEventListener("visibilitychange", ()=>{
+    if(!document.hidden){
+      checkDayRollover();
+      renderTimerBar();
+    }
+  });
+  window.addEventListener("focus", ()=>{
+    checkDayRollover();
+    renderTimerBar();
+  });
 
   // Redraw visible charts on resize/orientation-change, throttled to one
   // pass per frame instead of firing on every intermediate resize event.

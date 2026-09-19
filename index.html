@@ -817,7 +817,15 @@
     ]}
   ];
 
-  const todayISO = () => new Date().toISOString().slice(0,10);
+  const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
+  const daysAgoISO = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
 
   function blankState(){
     return {
@@ -1646,7 +1654,7 @@
 
   function get7dayAvgCalories(){
     const today = todayISO();
-    const cutoff = new Date(Date.now() - 7*864e5).toISOString().slice(0,10);
+    const cutoff = daysAgoISO(7);
     const totals = dailyCalorieTotals().filter(e=> e.date >= cutoff && e.date < today);
     if(!totals.length) return null;
     return totals.reduce((s,e)=> s+e.kcal, 0) / totals.length;
@@ -1655,7 +1663,7 @@
   // Trend: compares an early vs. late slice of a trailing 21-day window so a
   // single noisy weigh-in (water, sodium, sleep) doesn't swing the estimate.
   function computeTrend(){
-    const cutoff = new Date(Date.now() - 21*864e5).toISOString().slice(0,10);
+    const cutoff = daysAgoISO(21);
     const w = sortedWeight().filter(e=>e.date >= cutoff);
     const c = dailyCalorieTotals().filter(e=>e.date >= cutoff);
     if(w.length < 4) return null;

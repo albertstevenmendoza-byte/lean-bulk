@@ -665,6 +665,13 @@
         </div>
         <button class="btn-secondary" id="runEvalBtn">Run now</button>
       </div>
+      <div class="settings-row">
+        <div class="row-text">
+          <div class="label">Weight units stuck in kg?</div>
+          <div class="desc">Multiplies every logged weight, goal, and increment by 2.2 to fix numbers that still look like kg</div>
+        </div>
+        <button class="btn-danger" id="fixUnitsBtn">Convert</button>
+      </div>
     </div>
 
     <h2 class="section-title">Body & goal</h2>
@@ -946,12 +953,11 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
-  // One-time migration: the app used to log exercise weights in kg. Rather
-  // than just relabeling the unit (which would make every past lift look
-  // absurdly light), convert the actual numbers so history stays accurate.
-  // Bodyweight in the Fuel tab was always in lbs already, so it's untouched.
-  function migrateExerciseWeightsToLbs(){
-    if(state.meta.unitsConvertedToLbs) return;
+  // The app used to log exercise weights in kg. Rather than just relabeling
+  // the unit (which would make every past lift look absurdly light), convert
+  // the actual numbers so history stays accurate. Bodyweight in the Fuel tab
+  // was always in lbs already, so it's left untouched.
+  function runKgToLbsConversion(){
     const KG_TO_LBS = 2.20462;
     const roundWeight = kg => (kg === null || kg === undefined) ? kg : Math.round((kg * KG_TO_LBS) / 2.5) * 2.5;
     const roundIncrement = kg => (kg === null || kg === undefined) ? kg : Math.round((kg * KG_TO_LBS) * 2) / 2;
@@ -979,6 +985,11 @@
 
     state.meta.unitsConvertedToLbs = true;
     saveData();
+  }
+  // Runs automatically, exactly once, right after loading existing data.
+  function migrateExerciseWeightsToLbs(){
+    if(state.meta.unitsConvertedToLbs) return;
+    runKgToLbsConversion();
   }
 
   let state = loadData();
@@ -2350,6 +2361,15 @@
     if(e.target.id === "evalBackdrop") closeEvalModal();
   });
   document.getElementById("runEvalBtn").addEventListener("click", openEvalModal);
+  document.getElementById("fixUnitsBtn").addEventListener("click", ()=>{
+    if(confirm("This multiplies every logged weight, goal, and custom increment by ~2.2 (kg → lbs). Only do this once — running it twice will make your numbers too big. Continue?")){
+      runKgToLbsConversion();
+      showToast("Weights converted to lbs");
+      renderAll();
+      if(!document.getElementById("view-progress").hidden) renderProgress();
+      if(!document.getElementById("view-settings").hidden) renderSettings();
+    }
+  });
 
   // ---------- Settings ----------
   function renderSettings(){

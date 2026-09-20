@@ -226,7 +226,8 @@
   .set-table{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); overflow:hidden; margin-bottom:18px; }
   .set-table-head{ display:grid; grid-template-columns: 40px 1fr 1fr 48px; gap:8px; padding:11px 14px; background: var(--surface-2); }
   .set-table-head span{ font-family: var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color: var(--muted); font-weight:700; }
-  .set-row-display{ display:grid; grid-template-columns: 40px 1fr 1fr 48px; gap:8px; align-items:center; padding:14px; border-top:1px solid var(--border); }
+  .set-row-display{ display:grid; grid-template-columns: 40px 1fr 1fr 48px; gap:8px; align-items:center; padding:14px; border-top:1px solid var(--border); cursor:pointer; touch-action: manipulation; }
+  .set-row-display:active{ background: var(--surface-2); }
   .set-row-display .srd-num{ font-weight:800; font-size:16px; color: var(--text-secondary); }
   .set-row-display.done .srd-num{ color: var(--accent); }
   .set-row-display.active{ box-shadow: inset 0 0 0 1.5px var(--accent); background: rgba(62,203,82,0.07); }
@@ -1206,6 +1207,7 @@
   let trainMode = "overview"; // "overview" | "session"
   let sessionExerciseIndex = 0;
   let currentSetContext = null; // { exerciseName, setIndex } — tracks when stepper defaults need recomputing
+  let editingSetIndex = null; // non-null when the user tapped a specific set row to log/correct out of order
   let stepperWeight = 0;
   let stepperReps = 0;
 
@@ -1248,6 +1250,7 @@
     activeDayId = dayId;
     sessionExerciseIndex = index;
     currentSetContext = null;
+    editingSetIndex = null;
     trainMode = "session";
     renderTrain();
   }
@@ -1301,6 +1304,12 @@
     const key = `${currentName}:${setIndex}`;
     if(currentSetContext === key) return;
     currentSetContext = key;
+    const existing = todaySets[setIndex];
+    if(existing){
+      stepperWeight = existing.weight;
+      stepperReps = existing.reps;
+      return;
+    }
     if(setIndex > 0 && todaySets[setIndex-1]){
       stepperWeight = todaySets[setIndex-1].weight;
       stepperReps = todaySets[setIndex-1].reps;
@@ -1339,9 +1348,12 @@
     const last = getLastLog(currentName);
     const todaySets = getTodaySetsForExercise(currentName, ex.sets);
     const curIdx = getCurrentSetIndex(todaySets);
-    const allDone = curIdx >= ex.sets;
+    const targetIdx = editingSetIndex !== null ? editingSetIndex : curIdx;
+    const showEditor = targetIdx < ex.sets;
+    const isEditingLogged = showEditor && !!todaySets[targetIdx];
+    const isManualSelection = editingSetIndex !== null;
 
-    if(!allDone) syncStepperDefaults(ex, currentName, curIdx, todaySets);
+    if(showEditor) syncStepperDefaults(ex, currentName, targetIdx, todaySets);
 
     let html = `
       <div class="session-ex-name-row">
@@ -1354,9 +1366,9 @@
         <div class="set-table-head"><span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Done</span></div>
         ${Array.from({length: ex.sets}).map((_,i)=>{
           const s = todaySets[i];
-          const isActive = !allDone && i === curIdx;
+          const isActive = showEditor && i === targetIdx;
           return `
-            <div class="set-row-display ${s ? "done" : ""} ${isActive ? "active" : ""}">
+            <div class="set-row-display ${s ? "done" : ""} ${isActive ? "active" : ""}" data-set-index="${i}">
               <span class="srd-num">${i+1}</span>
               <span class="srd-weight">${s ? s.weight : `<span class="srd-dash">–</span>`}</span>
               <span class="srd-reps">${s ? s.reps : `<span class="srd-dash">–</span>`}</span>
@@ -1367,12 +1379,12 @@
       </div>
     `;
 
-    if(allDone){
+    if(!showEditor){
       const hasNext = sessionExerciseIndex < queue.length - 1;
       html += `
         <div class="session-complete-msg">
           <div class="scm-title">${hasNext ? "Exercise complete" : "Workout complete 💪"}</div>
-          <div class="scm-sub">${hasNext ? "Nice work — move on when you're ready." : "All exercises logged for today."}</div>
+          <div class="scm-sub">${hasNext ? "Nice work — move on when you're ready. Tap any set above to fix it." : "All exercises logged for today. Tap any set above to fix it."}</div>
         </div>
         ${hasNext
           ? `<button class="next-exercise-btn" id="advanceExerciseBtn">Next exercise →</button>`
@@ -1401,9 +1413,10 @@
           </div>
         </div>
         <div class="session-actions">
-          <button class="complete-set-btn" id="completeSetBtn">${DUMBBELL_ICON}<span>Complete Set</span></button>
+          <button class="complete-set-btn" id="completeSetBtn">${DUMBBELL_ICON}<span>${isEditingLogged ? "Save Set" : "Complete Set"}</span></button>
           <button class="timer-btn" id="sessionTimerBtn">${CLOCK_ICON}<span>Timer</span></button>
         </div>
+        ${isManualSelection ? `<button class="add-exercise-link" id="cancelEditBtn">Cancel</button>` : ""}
       `;
     }
 
@@ -1427,13 +1440,29 @@
 
     body.innerHTML = html;
 
+    body.querySelectorAll(".set-row-display").forEach(row=>{
+      row.addEventListener("click", ()=>{
+        editingSetIndex = parseInt(row.dataset.setIndex, 10);
+        currentSetContext = null;
+        renderSessionView();
+      });
+    });
+
     const swapBtn = document.getElementById("sessionSwapBtn");
     if(swapBtn) swapBtn.addEventListener("click", ()=> openPicker(ex));
 
     const completeBtn = document.getElementById("completeSetBtn");
     if(completeBtn) completeBtn.addEventListener("click", ()=>{
-      commitSet(currentName, curIdx, stepperWeight, stepperReps);
-      showToast(`Set ${curIdx+1} logged`);
+      commitSet(currentName, targetIdx, stepperWeight, stepperReps);
+      showToast(`Set ${targetIdx+1} ${isEditingLogged ? "updated" : "logged"}`);
+      editingSetIndex = null;
+      currentSetContext = null;
+      renderSessionView();
+    });
+
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+    if(cancelEditBtn) cancelEditBtn.addEventListener("click", ()=>{
+      editingSetIndex = null;
       currentSetContext = null;
       renderSessionView();
     });
@@ -1444,6 +1473,7 @@
     const advanceBtn = document.getElementById("advanceExerciseBtn");
     if(advanceBtn) advanceBtn.addEventListener("click", ()=>{
       sessionExerciseIndex += 1;
+      editingSetIndex = null;
       currentSetContext = null;
       renderSessionView();
     });
@@ -1454,6 +1484,7 @@
     const nextPreview = document.getElementById("nextExercisePreview");
     if(nextPreview) nextPreview.addEventListener("click", ()=>{
       sessionExerciseIndex += 1;
+      editingSetIndex = null;
       currentSetContext = null;
       renderSessionView();
     });

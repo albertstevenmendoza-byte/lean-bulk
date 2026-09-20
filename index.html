@@ -10,20 +10,20 @@
 <style>
   :root{
     color-scheme: dark;
-    --bg: #05070a;
-    --surface: #1a212a;
-    --surface-2: #232c37;
-    --border: #3c4855;
-    --text: #f7f9fa;
-    --text-secondary: #ccd6df;
-    --muted: #99a6b2;
-    --accent: #3ecb52;
-    --accent-dim: #2d8a3d;
-    --power: #5c8df6;
-    --warn: #e6b04f;
-    --danger: #ff9d8f;
-    --fuel: #ff8a42;
-    --fuel-dim: #c05a1e;
+    --bg: #0a0612;
+    --surface: #1e1524;
+    --surface-2: #2a2033;
+    --border: #4a3d59;
+    --text: #f7f0e8;
+    --text-secondary: #d9cde0;
+    --muted: #9c8aa8;
+    --accent: #ff7a1a;
+    --accent-dim: #cc5f0f;
+    --power: #a855f7;
+    --warn: #f4b942;
+    --danger: #ff5252;
+    --fuel: #7ee83a;
+    --fuel-dim: #4f9c1f;
     --nav-h: 64px;
     --radius-sm: 8px;
     --radius-md: 12px;
@@ -71,7 +71,7 @@
 
   .deload-banner{
     margin: 12px 18px 0; padding: 13px 15px; border: 1px solid var(--warn);
-    border-radius: var(--radius-md); background: rgba(230,176,79,0.12); color: var(--warn);
+    border-radius: var(--radius-md); background: rgba(244,185,66,0.12); color: var(--warn);
     font-family: var(--font-mono); font-size: 14px; font-weight:600; display:none;
     align-items:center; justify-content:space-between; gap:10px;
   }
@@ -83,13 +83,13 @@
 
   .eval-banner{
     margin: 12px 18px 0; padding: 13px 15px; border: 1px solid var(--power);
-    border-radius: var(--radius-md); background: rgba(92,141,246,0.12); color: var(--power);
+    border-radius: var(--radius-md); background: rgba(168,85,247,0.12); color: var(--power);
     font-family: var(--font-mono); font-size: 14px; font-weight:600; display:none;
     align-items:center; justify-content:space-between; gap:10px;
   }
   .eval-banner.show{ display:flex; }
   .eval-banner button{
-    background: var(--power); border: 1px solid var(--power); color: #071022;
+    background: var(--power); border: 1px solid var(--power); color: #180a24;
     border-radius: 7px; padding: 7px 11px; font-family: var(--font-mono); font-size: 12.5px; font-weight:700; white-space:nowrap;
   }
 
@@ -105,9 +105,9 @@
   .day-picker button.hypertrophy{ border-left-color: var(--accent-dim); }
   .day-picker .day-name{ font-family: var(--font-display); font-weight:700; font-size:14.5px; }
   .day-picker .day-type{ font-family: var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
-  .day-picker button.active{ border-color: var(--accent); border-left-color: var(--accent); color: var(--accent); background: rgba(62,203,82,0.13); }
+  .day-picker button.active{ border-color: var(--accent); border-left-color: var(--accent); color: var(--accent); background: rgba(255,122,26,0.13); }
   .day-picker button.active .day-type{ color: var(--accent); }
-  .day-picker button.power.active{ border-color: var(--power); border-left-color: var(--power); color: var(--power); background: rgba(92,141,246,0.13); }
+  .day-picker button.power.active{ border-color: var(--power); border-left-color: var(--power); color: var(--power); background: rgba(168,85,247,0.13); }
   .day-picker button.power.active .day-type{ color: var(--power); }
 
   .card{
@@ -130,8 +130,8 @@
   .swap-btn:active{ border-color: var(--accent); color: var(--accent); }
 
   .status-dot{ width:11px; height:11px; border-radius:50%; background: var(--border); margin-top:4px; flex:0 0 auto; }
-  .status-dot.ready{ background: var(--accent); box-shadow: 0 0 0 4px rgba(62,203,82,0.22); animation: pulse 1.8s infinite; }
-  @keyframes pulse{ 0%{ box-shadow: 0 0 0 0 rgba(62,203,82,0.4);} 70%{ box-shadow: 0 0 0 7px rgba(62,203,82,0);} 100%{ box-shadow: 0 0 0 0 rgba(62,203,82,0);} }
+  .status-dot.ready{ background: var(--accent); box-shadow: 0 0 0 4px rgba(255,122,26,0.22); animation: pulse 1.8s infinite; }
+  @keyframes pulse{ 0%{ box-shadow: 0 0 0 0 rgba(255,122,26,0.4);} 70%{ box-shadow: 0 0 0 7px rgba(255,122,26,0);} 100%{ box-shadow: 0 0 0 0 rgba(255,122,26,0);} }
 
   .ready-badge{
     display:flex; align-items:center; gap:4px;
@@ -156,7 +156,7 @@
     display:flex; align-items:center; gap:14px;
   }
   .rest-bar[hidden]{ display:none; }
-  .rest-bar.complete{ border-top-color: var(--accent); background: rgba(62,203,82,0.16); }
+  .rest-bar.complete{ border-top-color: var(--accent); background: rgba(255,122,26,0.16); }
   .rest-ring-wrap{ position:relative; width:60px; height:60px; flex:0 0 auto; }
   .rest-ring{ transform: rotate(-90deg); transform-origin: 50% 50%; }
   .ring-track{ fill:none; stroke: var(--border); stroke-width:6; }
@@ -193,7 +193,7 @@
 
   /* Train — overview */
   .start-workout-btn{
-    width:100%; background: var(--accent); color:#04140a; font-weight:800;
+    width:100%; background: var(--accent); color:#2b0f02; font-weight:800;
     border:none; border-radius: var(--radius-lg); padding: 15px; font-size: 15px; margin-bottom: 16px;
   }
   .overview-ex-row{
@@ -221,7 +221,8 @@
 
   .session-ex-name-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; }
   .session-ex-name{ font-size: 25px; font-weight:800; letter-spacing:-0.01em; }
-  .session-ex-last{ font-family: var(--font-mono); font-size: 13.5px; color: var(--text-secondary); margin-bottom: 18px; }
+  .session-ex-last{ font-family: var(--font-mono); font-size: 13.5px; color: var(--text-secondary); margin-bottom: 4px; }
+  .session-ex-target{ font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: 18px; }
 
   .set-table{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); overflow:hidden; margin-bottom:18px; }
   .set-table-head{ display:grid; grid-template-columns: 40px 1fr 1fr 48px; gap:8px; padding:11px 14px; background: var(--surface-2); }
@@ -230,7 +231,7 @@
   .set-row-display:active{ background: var(--surface-2); }
   .set-row-display .srd-num{ font-weight:800; font-size:16px; color: var(--text-secondary); }
   .set-row-display.done .srd-num{ color: var(--accent); }
-  .set-row-display.active{ box-shadow: inset 0 0 0 1.5px var(--accent); background: rgba(62,203,82,0.07); }
+  .set-row-display.active{ box-shadow: inset 0 0 0 1.5px var(--accent); background: rgba(255,122,26,0.07); }
   .set-row-display.active .srd-num{ color: var(--accent); }
   .set-row-display .srd-weight, .set-row-display .srd-reps{ font-weight:700; font-size:17px; }
   .set-row-display .srd-dash{ color: var(--muted); font-weight:400; }
@@ -255,7 +256,7 @@
 
   .session-actions{ display:flex; gap:10px; margin-bottom: 18px; }
   .complete-set-btn{
-    flex:1.5; background: var(--accent); color:#04140a; font-weight:800; border:none; border-radius: var(--radius-lg);
+    flex:1.5; background: var(--accent); color:#2b0f02; font-weight:800; border:none; border-radius: var(--radius-lg);
     padding: 16px 10px; font-size:14.5px; display:flex; align-items:center; justify-content:center; gap:8px;
   }
   .complete-set-btn svg{ width:16px; height:16px; }
@@ -277,7 +278,7 @@
   .session-complete-msg .scm-title{ font-size:18px; font-weight:800; color: var(--accent); margin-bottom:6px; }
   .session-complete-msg .scm-sub{ font-family: var(--font-mono); font-size:13px; color: var(--muted); }
   .next-exercise-btn{
-    width:100%; background: var(--accent); color:#04140a; font-weight:800; border:none;
+    width:100%; background: var(--accent); color:#2b0f02; font-weight:800; border:none;
     border-radius: var(--radius-lg); padding:16px; font-size:15px; margin-bottom:18px;
   }
 
@@ -342,10 +343,10 @@
   .quick-add-digits::placeholder{ color:#48525c; }
   .quick-add-fab{
     flex:0 0 auto; width:56px; height:56px; border-radius:50%;
-    background: var(--fuel); color:#2a1204; border:none;
+    background: var(--fuel); color:#0d1e04; border:none;
     font-size: 29px; font-weight:800; line-height:1;
     display:flex; align-items:center; justify-content:center;
-    box-shadow: 0 6px 18px rgba(255,138,66,0.38);
+    box-shadow: 0 6px 18px rgba(126,232,58,0.38);
   }
   .quick-add-fab:active{ transform: scale(0.88); }
   .quick-add-note{
@@ -431,12 +432,12 @@
     background: var(--surface-2); border:1.5px solid var(--border); border-radius: var(--radius-md);
     padding:13px 14px; font-size:14.5px; font-weight:600; color: var(--text);
   }
-  .option-btn.selected{ border-color: var(--accent); color: var(--accent); background: rgba(62,203,82,0.12); }
+  .option-btn.selected{ border-color: var(--accent); color: var(--accent); background: rgba(255,122,26,0.12); }
   .option-btn .check{ width:16px; height:16px; color: var(--accent); flex:0 0 auto; }
   .option-btn.reset-option{ color: var(--muted); font-weight:600; font-family: var(--font-mono); font-size:12.5px; border-style:dashed; }
   .modal-custom{ display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border); }
   .modal-custom input{ flex:1; background: var(--surface-2); border:1.5px solid var(--border); color:var(--text); border-radius: var(--radius-sm); padding:11px 12px; font-size:14px; }
-  .modal-custom button{ background: var(--accent); color:#04140a; font-weight:700; border:none; border-radius: var(--radius-sm); padding: 11px 16px; font-size:13.5px; white-space:nowrap; }
+  .modal-custom button{ background: var(--accent); color:#2b0f02; font-weight:700; border:none; border-radius: var(--radius-sm); padding: 11px 16px; font-size:13.5px; white-space:nowrap; }
 
   /* 10-week evaluation modal */
   .eval-question{ margin-bottom: 18px; }
@@ -446,9 +447,9 @@
     flex:1; background: var(--surface-2); border:1.5px solid var(--border); color: var(--text-secondary);
     border-radius: var(--radius-sm); padding: 11px 8px; font-size:13.5px; font-weight:600;
   }
-  .eval-opt.selected{ border-color: var(--power); color: var(--power); background: rgba(92,141,246,0.12); }
+  .eval-opt.selected{ border-color: var(--power); color: var(--power); background: rgba(168,85,247,0.12); }
   .eval-run-btn{
-    width:100%; background: var(--power); color:#071022; font-weight:800; border:none;
+    width:100%; background: var(--power); color:#180a24; font-weight:800; border:none;
     border-radius: var(--radius-lg); padding: 15px; font-size:15px; margin-top:4px;
   }
   .eval-section-h{ font-size:12.5px; text-transform:uppercase; letter-spacing:0.06em; color: var(--text-secondary); font-weight:700; margin: 18px 0 10px; font-family: var(--font-mono); }
@@ -1361,6 +1362,7 @@
         <button class="swap-btn" id="sessionSwapBtn">${SWAP_ICON}<span>Swap</span></button>
       </div>
       <div class="session-ex-last">${last ? `Last: ${last.sets[0] ? `${last.sets[0].weight??"–"} kg × ${last.sets[0].reps??"–"}` : "–"}` : "No logs yet"}</div>
+      <div class="session-ex-target">Target: ${ex.sets} sets × ${ex.range[0]}-${ex.range[1]} reps</div>
 
       <div class="set-table">
         <div class="set-table-head"><span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Done</span></div>
@@ -1403,7 +1405,7 @@
           </div>
         </div>
         <div class="stepper-card">
-          <div class="stepper-label">Reps</div>
+          <div class="stepper-label">Reps · target ${ex.range[0]}-${ex.range[1]}</div>
           <div class="stepper-row">
             <input type="number" inputmode="numeric" step="1" class="stepper-value-input" id="stepperRepsValue" value="${stepperReps}">
             <div class="stepper-btns">
@@ -1556,8 +1558,8 @@
 
     if(points.length >= 2){
       const grad = ctx.createLinearGradient(0,0,0,h);
-      grad.addColorStop(0, "rgba(62,203,82,0.32)");
-      grad.addColorStop(1, "rgba(62,203,82,0)");
+      grad.addColorStop(0, "rgba(255,122,26,0.32)");
+      grad.addColorStop(1, "rgba(255,122,26,0)");
       ctx.beginPath();
       points.forEach((p,i)=>{
         const x = xFor(i), y = yFor(p.y);
@@ -1570,7 +1572,7 @@
       ctx.fill();
     }
 
-    ctx.strokeStyle = "#3ecb52";
+    ctx.strokeStyle = "#ff7a1a";
     ctx.lineWidth = 2.5;
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -1580,7 +1582,7 @@
     });
     ctx.stroke();
 
-    ctx.fillStyle = "#3ecb52";
+    ctx.fillStyle = "#ff7a1a";
     points.forEach((p,i)=>{
       const x = xFor(i), y = yFor(p.y);
       ctx.beginPath();
@@ -1591,7 +1593,7 @@
     const lastX = xFor(points.length-1), lastY = yFor(points[points.length-1].y);
     ctx.beginPath();
     ctx.arc(lastX, lastY, 6, 0, Math.PI*2);
-    ctx.strokeStyle = "#3ecb52";
+    ctx.strokeStyle = "#ff7a1a";
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }

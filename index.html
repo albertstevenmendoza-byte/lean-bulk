@@ -222,7 +222,33 @@
   .session-ex-name-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; }
   .session-ex-name{ font-size: 25px; font-weight:800; letter-spacing:-0.01em; }
   .session-ex-last{ font-family: var(--font-mono); font-size: 13.5px; color: var(--text-secondary); margin-bottom: 4px; }
-  .session-ex-target{ font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .session-ex-target{ font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+
+  .levelup-banner{
+    display:flex; align-items:center; gap:10px;
+    background: linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,140,0,0.10));
+    border:1px solid #ffd700; border-radius: var(--radius-md);
+    padding: 12px 14px; margin-bottom:16px; font-size:13.5px; color: var(--text); line-height:1.4;
+  }
+  .levelup-banner strong{ color:#ffd700; }
+  .levelup-icon{ font-size:18px; flex:0 0 auto; }
+  .oer-status.levelup{ color:#ffd700; font-size:17px; }
+
+  .powerup-overlay{
+    position: fixed; inset:0; z-index: 200; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; opacity:0; transition: opacity 0.25s ease;
+  }
+  .powerup-overlay.show{ opacity:1; }
+  .powerup-badge{
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color:#2b1400; font-family: var(--font-display); font-weight:900; font-size:21px;
+    padding: 16px 26px; border-radius: 999px;
+    box-shadow: 0 8px 40px rgba(255,215,0,0.55), 0 0 0 4px rgba(255,215,0,0.25);
+    transform: scale(0.4) rotate(-8deg);
+    transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
+    text-align:center; white-space:nowrap;
+  }
+  .powerup-overlay.show .powerup-badge{ transform: scale(1) rotate(0deg); }
 
   .set-table{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); overflow:hidden; margin-bottom:18px; }
   .set-table-head{ display:grid; grid-template-columns: 40px 1fr 1fr 48px; gap:8px; padding:11px 14px; background: var(--surface-2); }
@@ -836,7 +862,7 @@
         sex: "male", age: null, heightIn: null, activity: "1.375",
         goalType: "bulk", targetRatePct: null, lastEvaluationDate: null
       },
-      logs: {}, overrides: {}, extraExercises: {}, evaluations: [],
+      logs: {}, overrides: {}, extraExercises: {}, evaluations: [], levelUpFlags: {},
       metrics: { weight: [], meals: [] }
     };
   }
@@ -848,6 +874,7 @@
         if(!parsed.overrides) parsed.overrides = {};
         if(!parsed.extraExercises) parsed.extraExercises = {};
         if(!parsed.evaluations) parsed.evaluations = [];
+        if(!parsed.levelUpFlags) parsed.levelUpFlags = {};
         if(!parsed.metrics) parsed.metrics = {};
         if(!parsed.metrics.weight) parsed.metrics.weight = [];
         if(!parsed.metrics.meals){
@@ -894,12 +921,6 @@
   function getLastLog(name){
     const logs = getExerciseLogs(name);
     return logs.length ? logs[logs.length-1] : null;
-  }
-  function isReadyToProgress(ex){
-    const name = getExerciseName(ex);
-    const last = getLastLog(name);
-    if(!last || !last.sets.length) return false;
-    return last.sets.every(s => s.reps !== null && s.reps >= ex.range[1]);
   }
   function getSessionsThisWeek(){
     const cutoff = Date.now() - 7*864e5;
@@ -1053,6 +1074,38 @@
       osc.start(audioCtx.currentTime + delay);
       osc.stop(audioCtx.currentTime + delay + 0.16);
     });
+  }
+
+  // ---------- Power-up (dynamic double progression) ----------
+  function playPowerUpSound(){
+    if(!audioCtx) return;
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i)=>{ // C5 E5 G5 C6 — ascending "level up" arpeggio
+      const delay = i * 0.09;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square"; // brighter, more chiptune/game-like than the rest-timer's sine beep
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.16, audioCtx.currentTime + delay + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + delay + 0.14);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + 0.16);
+    });
+  }
+  function triggerPowerUp(){
+    ensureAudio();
+    playPowerUpSound();
+    if(navigator.vibrate) navigator.vibrate([40,30,40,30,90]);
+    const overlay = document.createElement("div");
+    overlay.className = "powerup-overlay";
+    overlay.innerHTML = `<div class="powerup-badge">⚡ POWER UP! ⚡</div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=> overlay.classList.add("show"));
+    setTimeout(()=>{
+      overlay.classList.remove("show");
+      setTimeout(()=> overlay.remove(), 300);
+    }, 1000);
   }
 
   function startRest(exerciseName, seconds){
@@ -1293,6 +1346,7 @@
           <div class="oer-name">${currentName}</div>
           <div class="oer-meta">${ex.sets} sets × ${ex.range[0]}-${ex.range[1]} reps · ${lastText}</div>
         </div>
+        ${state.levelUpFlags[currentName] ? `<span class="oer-status levelup">⚡</span>` : ""}
         ${allDone ? `<span class="oer-status done">${CHECK_ICON}</span>` : (doneCount>0 ? `<span class="oer-status">${doneCount}/${ex.sets}</span>` : "")}
         <span class="oer-chevron">›</span>
       `;
@@ -1363,6 +1417,12 @@
       </div>
       <div class="session-ex-last">${last ? `Last: ${last.sets[0] ? `${last.sets[0].weight??"–"} kg × ${last.sets[0].reps??"–"}` : "–"}` : "No logs yet"}</div>
       <div class="session-ex-target">Target: ${ex.sets} sets × ${ex.range[0]}-${ex.range[1]} reps</div>
+      ${state.levelUpFlags[currentName] ? `
+        <div class="levelup-banner">
+          <span class="levelup-icon">⚡</span>
+          <span>Level up ready — try <strong>${state.levelUpFlags[currentName].suggestedWeight} kg</strong> next time (+${state.levelUpFlags[currentName].suggestedWeight - state.levelUpFlags[currentName].atWeight} kg)</span>
+        </div>
+      ` : ""}
 
       <div class="set-table">
         <div class="set-table-head"><span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Done</span></div>
@@ -1456,10 +1516,30 @@
     const completeBtn = document.getElementById("completeSetBtn");
     if(completeBtn) completeBtn.addEventListener("click", ()=>{
       commitSet(currentName, targetIdx, stepperWeight, stepperReps);
+
+      // Dynamic double progression: clear the flag once they've actually taken
+      // the suggested jump, or set a new one the moment a set hits the top of
+      // the rep range — no need to wait for every set to get there.
+      const existingFlag = state.levelUpFlags[currentName];
+      if(existingFlag && stepperWeight >= existingFlag.suggestedWeight){
+        delete state.levelUpFlags[currentName];
+      }
+      let leveledUp = false;
+      if(stepperReps >= ex.range[1]){
+        leveledUp = true;
+        const inc = ex.mainLift ? 5 : 2.5;
+        const suggestedWeight = Math.round((stepperWeight + inc) * 10) / 10;
+        if(!state.levelUpFlags[currentName] || state.levelUpFlags[currentName].atWeight < stepperWeight){
+          state.levelUpFlags[currentName] = { atWeight: stepperWeight, suggestedWeight };
+        }
+      }
+      saveData();
+
       showToast(`Set ${targetIdx+1} ${isEditingLogged ? "updated" : "logged"}`);
       editingSetIndex = null;
       currentSetContext = null;
       renderSessionView();
+      if(leveledUp) triggerPowerUp();
     });
 
     const cancelEditBtn = document.getElementById("cancelEditBtn");

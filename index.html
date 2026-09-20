@@ -6,7 +6,7 @@
 <title>Lean Bulk // Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     color-scheme: dark;
@@ -25,19 +25,24 @@
     --fuel: #7ee83a;
     --fuel-dim: #4f9c1f;
     --nav-h: 64px;
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
     --font-display: 'Space Grotesk', -apple-system, "Segoe UI", system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    --font-pixel: 'Press Start 2P', var(--font-mono);
   }
   *{ box-sizing: border-box; }
   html,body{ margin:0; padding:0; background:var(--bg); color:var(--text); font-family:var(--font-display); font-size:16px; line-height:1.4; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-  body{ padding-bottom: calc(var(--nav-h) + 24px); }
+  body{ padding-bottom: calc(var(--nav-h) + 24px); position: relative; }
   body.rest-active{ padding-bottom: calc(var(--nav-h) + 190px); }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:1; pointer-events:none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 1px, transparent 1px, transparent 3px);
+  }
   button, input{ font-family: inherit; }
-  button{ transition: transform 0.1s ease, opacity 0.1s ease; cursor:pointer; touch-action: manipulation; }
-  button:active{ transform: scale(0.96); }
+  button{ transition: transform 0.08s steps(1), opacity 0.1s ease; cursor:pointer; touch-action: manipulation; }
+  button:active{ transform: translate(1px, 1px); }
   button:focus-visible, input:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
 
   @media (prefers-reduced-motion: reduce){
@@ -58,10 +63,10 @@
     position: sticky; top:0; background: var(--bg); z-index: 10;
   }
   header.top .eyebrow{
-    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
-    color: var(--accent); text-transform: uppercase; font-weight: 600;
+    font-family: var(--font-pixel); font-size: 9px; letter-spacing: 0.04em;
+    color: var(--accent); text-transform: uppercase; font-weight: 400; line-height:1.6;
   }
-  header.top h1{ font-size: 25px; margin: 6px 0 4px; font-weight: 800; letter-spacing: -0.015em; }
+  header.top h1{ font-family: var(--font-pixel); font-size: 16px; margin: 10px 0 8px; font-weight: 400; letter-spacing: 0; line-height:1.4; }
 
   .week-row{ display:flex; justify-content:space-between; align-items:baseline; margin-top: 8px; gap:8px; }
   .week-row .sub{ font-family: var(--font-mono); font-size: 14px; color: var(--text-secondary); font-weight:600; }
@@ -113,7 +118,7 @@
   .card{
     background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg);
     padding: 15px 16px; margin-bottom: 12px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 16px rgba(0,0,0,0.22);
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
   }
   .card .ex-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom: 11px; }
   .ex-name-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -185,16 +190,17 @@
   }
   .bottom-nav button{
     flex:1; background:none; border:none; color: var(--muted);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-    font-family: var(--font-mono); font-size: 11px; font-weight:600; letter-spacing:0.02em;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+    font-family: var(--font-pixel); font-size: 8px; font-weight:400; letter-spacing:0;
   }
   .bottom-nav button svg{ width:21px; height:21px; }
   .bottom-nav button.active{ color: var(--accent); }
 
   /* Train — overview */
   .start-workout-btn{
-    width:100%; background: var(--accent); color:#2b0f02; font-weight:800;
-    border:none; border-radius: var(--radius-lg); padding: 15px; font-size: 15px; margin-bottom: 16px;
+    width:100%; background: var(--accent); color:#2b0f02; font-weight:400;
+    border:none; border-radius: var(--radius-lg); padding: 16px 15px; font-size: 11px; margin-bottom: 16px;
+    font-family: var(--font-pixel); letter-spacing:0.02em;
   }
   .overview-ex-row{
     display:flex; align-items:center; gap:12px;
@@ -224,6 +230,42 @@
   .session-ex-last{ font-family: var(--font-mono); font-size: 13.5px; color: var(--text-secondary); margin-bottom: 4px; }
   .session-ex-target{ font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-bottom: 12px; }
 
+  .increment-row{
+    display:flex; align-items:center; gap:8px; font-family: var(--font-mono); font-size:12.5px; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .increment-row input{
+    width:56px; background: var(--surface-2); border:1px solid var(--border); color: var(--text);
+    border-radius:6px; padding:6px 8px; font-family: var(--font-mono); font-size:13px; text-align:center;
+  }
+  .goal-row{
+    display:flex; align-items:center; gap:8px; font-family: var(--font-mono); font-size:12.5px; color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .goal-row input{
+    width:64px; background: var(--surface-2); border:1px solid var(--border); color: var(--text);
+    border-radius:6px; padding:6px 8px; font-family: var(--font-mono); font-size:13px; text-align:center;
+  }
+
+  .board-card{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 16px 12px; margin-bottom: 16px; }
+  .board-header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; gap:10px; }
+  .board-title{ font-weight:800; font-size:14.5px; }
+  .board-stat{ font-family: var(--font-mono); font-size:11.5px; color: var(--muted); text-align:right; white-space:nowrap; }
+  .board-track-wrap{ overflow-x:auto; padding: 6px 2px 14px; -webkit-overflow-scrolling:touch; }
+  .board-track{ position:relative; display:flex; align-items:center; min-width:max-content; padding: 0 20px; height:44px; }
+  .board-line{ position:absolute; left:20px; right:20px; top:50%; height:3px; background: var(--border); transform:translateY(-50%); z-index:0; border-radius:2px; }
+  .board-line-fill{ position:absolute; left:20px; top:50%; height:3px; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); transform:translateY(-50%); z-index:1; border-radius:2px; transition: width 0.4s ease; }
+  .board-space{
+    position:relative; z-index:2; width:34px; height:34px; border-radius:50%; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    background: var(--surface-2); border:2px solid var(--border); margin-right:24px;
+  }
+  .board-space:last-child{ margin-right:0; }
+  .board-space.reached{ border-color: var(--accent); background: rgba(255,122,26,0.15); }
+  .board-space.current{ border-color:#ffd700; background: rgba(255,215,0,0.22); box-shadow:0 0 0 4px rgba(255,215,0,0.16); font-size:19px; }
+  .board-space.goal-space{ border-color:#ffd700; }
+  .board-caption{ font-family: var(--font-mono); font-size:11.5px; color: var(--muted); text-align:center; }
+
   .levelup-banner{
     display:flex; align-items:center; gap:10px;
     background: linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,140,0,0.10));
@@ -241,12 +283,12 @@
   .powerup-overlay.show{ opacity:1; }
   .powerup-badge{
     background: linear-gradient(135deg, #ffd700, #ff8c00);
-    color:#2b1400; font-family: var(--font-display); font-weight:900; font-size:21px;
-    padding: 16px 26px; border-radius: 999px;
-    box-shadow: 0 8px 40px rgba(255,215,0,0.55), 0 0 0 4px rgba(255,215,0,0.25);
+    color:#2b1400; font-family: var(--font-pixel); font-weight:400; font-size:13px;
+    padding: 18px 22px; border-radius: var(--radius-md);
+    box-shadow: 5px 5px 0 rgba(0,0,0,0.5), 0 0 0 3px #2b1400;
     transform: scale(0.4) rotate(-8deg);
     transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
-    text-align:center; white-space:nowrap;
+    text-align:center; white-space:nowrap; line-height:1.6;
   }
   .powerup-overlay.show .powerup-badge{ transform: scale(1) rotate(0deg); }
 
@@ -282,30 +324,34 @@
 
   .session-actions{ display:flex; gap:10px; margin-bottom: 18px; }
   .complete-set-btn{
-    flex:1.5; background: var(--accent); color:#2b0f02; font-weight:800; border:none; border-radius: var(--radius-lg);
-    padding: 16px 10px; font-size:14.5px; display:flex; align-items:center; justify-content:center; gap:8px;
+    flex:1.5; background: var(--accent); color:#2b0f02; font-weight:400; border:none; border-radius: var(--radius-lg);
+    padding: 16px 8px; font-size:10px; display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family: var(--font-pixel); letter-spacing:0.01em;
   }
   .complete-set-btn svg{ width:16px; height:16px; }
   .timer-btn{
     flex:1; background: var(--surface); color: var(--text); border:1px solid var(--border); border-radius: var(--radius-lg);
-    padding: 16px 10px; font-size:13.5px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;
+    padding: 16px 8px; font-size:10px; font-weight:400; display:flex; align-items:center; justify-content:center; gap:6px;
+    font-family: var(--font-pixel); letter-spacing:0.01em;
   }
   .timer-btn svg{ width:15px; height:15px; }
 
   .add-exercise-link{
-    background:none; border:none; color: var(--accent); font-weight:700; font-size:14.5px;
-    padding: 10px 0; display:flex; align-items:center; gap:6px; margin-bottom: 16px;
+    background:none; border:none; color: var(--accent); font-weight:400; font-size:10px;
+    padding: 12px 0; display:flex; align-items:center; gap:6px; margin-bottom: 16px;
+    font-family: var(--font-pixel); letter-spacing:0.01em;
   }
-  .next-exercise-label{ font-family: var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color: var(--muted); margin-bottom:8px; }
+  .next-exercise-label{ font-family: var(--font-pixel); font-size:9px; text-transform:uppercase; letter-spacing:0.02em; color: var(--muted); margin-bottom:10px; line-height:1.6; }
   .session-complete-msg{
     text-align:center; padding: 22px 16px; background: var(--surface); border:1px solid var(--border);
     border-radius: var(--radius-lg); margin-bottom:18px;
   }
-  .session-complete-msg .scm-title{ font-size:18px; font-weight:800; color: var(--accent); margin-bottom:6px; }
+  .session-complete-msg .scm-title{ font-family: var(--font-pixel); font-size:12px; font-weight:400; color: var(--accent); margin-bottom:12px; line-height:1.6; }
   .session-complete-msg .scm-sub{ font-family: var(--font-mono); font-size:13px; color: var(--muted); }
   .next-exercise-btn{
-    width:100%; background: var(--accent); color:#2b0f02; font-weight:800; border:none;
-    border-radius: var(--radius-lg); padding:16px; font-size:15px; margin-bottom:18px;
+    width:100%; background: var(--accent); color:#2b0f02; font-weight:400; border:none;
+    border-radius: var(--radius-lg); padding:16px; font-size:11px; margin-bottom:18px;
+    font-family: var(--font-pixel); letter-spacing:0.02em;
   }
 
   .toast{
@@ -317,7 +363,7 @@
   .toast.show{ opacity:1; }
   body.rest-active .toast{ bottom: calc(var(--nav-h) + 108px); }
 
-  h2.section-title{ font-size: 14px; text-transform: uppercase; letter-spacing:0.07em; color: var(--text-secondary); font-weight:700; margin: 22px 0 10px; font-family: var(--font-mono); }
+  h2.section-title{ font-size: 10px; text-transform: uppercase; letter-spacing:0.02em; color: var(--text-secondary); font-weight:400; margin: 24px 0 12px; font-family: var(--font-pixel); line-height:1.6; }
   h2.section-title:first-child{ margin-top:0; }
 
   .lift-block{ margin-bottom: 24px; }
@@ -338,9 +384,9 @@
   .settings-row .label{ font-size: 15px; font-weight:600; }
   .settings-row .desc{ font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top:3px; }
   .settings-row .row-text{ flex:1; min-width:0; }
-  .btn-secondary{ display:flex; align-items:center; gap:6px; background: var(--surface-2); border:1.5px solid var(--border); color: var(--text); padding: 9px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight:600; white-space:nowrap; }
+  .btn-secondary{ display:flex; align-items:center; gap:6px; background: var(--surface-2); border:1.5px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 9px; font-weight:400; white-space:nowrap; font-family: var(--font-pixel); }
   .btn-secondary svg{ width:14px; height:14px; }
-  .btn-danger{ display:flex; align-items:center; gap:6px; background: transparent; border:1.5px solid var(--danger); color:var(--danger); padding: 9px 14px; border-radius:var(--radius-sm); font-size:13px; font-weight:600; }
+  .btn-danger{ display:flex; align-items:center; gap:6px; background: transparent; border:1.5px solid var(--danger); color:var(--danger); padding: 10px 12px; border-radius:var(--radius-sm); font-size:9px; font-weight:400; font-family: var(--font-pixel); }
   .btn-danger svg{ width:14px; height:14px; }
   input[type="date"]{ background: var(--surface-2); border:1.5px solid var(--border); color:var(--text); border-radius:6px; padding:8px; font-family: var(--font-mono); font-size:13.5px; }
   #importFile{ display:none; }
@@ -448,7 +494,7 @@
   }
   @keyframes slideUp{ from{ transform: translateY(24px); opacity:0.4; } to{ transform: translateY(0); opacity:1; } }
   .modal-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; }
-  .modal-title{ font-weight:700; font-size:17px; }
+  .modal-title{ font-weight:400; font-size:12px; font-family: var(--font-pixel); line-height:1.6; }
   .modal-sub{ font-family: var(--font-mono); font-size:12px; color: var(--muted); margin-top:4px; }
   .modal-close{ background: var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px; color: var(--text-secondary); flex:0 0 auto; }
   .modal-close svg{ width:15px; height:15px; display:block; }
@@ -475,10 +521,11 @@
   }
   .eval-opt.selected{ border-color: var(--power); color: var(--power); background: rgba(168,85,247,0.12); }
   .eval-run-btn{
-    width:100%; background: var(--power); color:#180a24; font-weight:800; border:none;
-    border-radius: var(--radius-lg); padding: 15px; font-size:15px; margin-top:4px;
+    width:100%; background: var(--power); color:#180a24; font-weight:400; border:none;
+    border-radius: var(--radius-lg); padding: 16px; font-size:11px; margin-top:4px;
+    font-family: var(--font-pixel); letter-spacing:0.02em;
   }
-  .eval-section-h{ font-size:12.5px; text-transform:uppercase; letter-spacing:0.06em; color: var(--text-secondary); font-weight:700; margin: 18px 0 10px; font-family: var(--font-mono); }
+  .eval-section-h{ font-size:10px; text-transform:uppercase; letter-spacing:0.02em; color: var(--text-secondary); font-weight:400; margin: 20px 0 12px; font-family: var(--font-pixel); line-height:1.6; }
   .eval-section-h:first-child{ margin-top:2px; }
   .lift-progress-row{
     display:flex; justify-content:space-between; align-items:center; gap:10px;
@@ -862,7 +909,7 @@
         sex: "male", age: null, heightIn: null, activity: "1.375",
         goalType: "bulk", targetRatePct: null, lastEvaluationDate: null
       },
-      logs: {}, overrides: {}, extraExercises: {}, evaluations: [], levelUpFlags: {},
+      logs: {}, overrides: {}, extraExercises: {}, evaluations: [], levelUpFlags: {}, customIncrements: {}, goals: {},
       metrics: { weight: [], meals: [] }
     };
   }
@@ -875,6 +922,8 @@
         if(!parsed.extraExercises) parsed.extraExercises = {};
         if(!parsed.evaluations) parsed.evaluations = [];
         if(!parsed.levelUpFlags) parsed.levelUpFlags = {};
+        if(!parsed.customIncrements) parsed.customIncrements = {};
+        if(!parsed.goals) parsed.goals = {};
         if(!parsed.metrics) parsed.metrics = {};
         if(!parsed.metrics.weight) parsed.metrics.weight = [];
         if(!parsed.metrics.meals){
@@ -1289,6 +1338,36 @@
     entry.sets[index] = { weight, reps };
     saveData();
   }
+  function getIncrement(ex, exerciseName){
+    const custom = state.customIncrements[exerciseName];
+    if(custom !== undefined && custom !== null && custom !== "") return parseFloat(custom);
+    return ex.mainLift ? 5 : 2.5;
+  }
+  // Board position is always derived fresh from logged history, never a
+  // separately-mutated counter — so a genuine regression (a lower top-set
+  // weight in the most recent session than before) naturally moves the
+  // character back, with no extra bookkeeping to keep in sync.
+  function getGoalProgress(ex, exerciseName){
+    const goalRaw = state.goals[exerciseName];
+    if(goalRaw === undefined || goalRaw === null || goalRaw === "") return null;
+    const goal = parseFloat(goalRaw);
+    const logs = getExerciseLogs(exerciseName);
+    if(!logs.length) return null;
+    const startingWeight = topSetWeight(logs[0].sets);
+    const currentWeight = topSetWeight(logs[logs.length-1].sets);
+    const inc = getIncrement(ex, exerciseName);
+
+    if(goal <= startingWeight){
+      const reached = currentWeight >= goal;
+      return { goal, startingWeight, currentWeight, totalSpaces: 1, position: reached ? 1 : 0, pct: reached ? 100 : 0, remaining: Math.max(0, goal-currentWeight) };
+    }
+
+    const totalSpaces = Math.max(1, Math.ceil((goal - startingWeight) / inc));
+    let position = Math.round((currentWeight - startingWeight) / inc);
+    position = Math.max(0, Math.min(totalSpaces, position));
+    const pct = Math.max(0, Math.min(100, Math.round(((currentWeight - startingWeight) / (goal - startingWeight)) * 100)));
+    return { goal, startingWeight, currentWeight, totalSpaces, position, pct, remaining: Math.max(0, goal - currentWeight) };
+  }
   function firstIncompleteIndex(day){
     const queue = getDayQueue(day);
     for(let i=0;i<queue.length;i++){
@@ -1417,6 +1496,46 @@
       </div>
       <div class="session-ex-last">${last ? `Last: ${last.sets[0] ? `${last.sets[0].weight??"–"} kg × ${last.sets[0].reps??"–"}` : "–"}` : "No logs yet"}</div>
       <div class="session-ex-target">Target: ${ex.sets} sets × ${ex.range[0]}-${ex.range[1]} reps</div>
+      <div class="increment-row">
+        <span>Weight jump on level up:</span>
+        <input type="number" step="0.5" min="0" class="increment-input" id="incrementInput" value="${getIncrement(ex, currentName)}">
+        <span>kg</span>
+      </div>
+      <div class="goal-row">
+        <span>Goal weight:</span>
+        <input type="number" step="2.5" min="0" class="goal-input" id="goalInput" value="${state.goals[currentName] ?? ""}" placeholder="e.g. 100">
+        <span>kg</span>
+      </div>
+      ${(()=>{
+        const gp = getGoalProgress(ex, currentName);
+        if(!gp) return "";
+        const spaces = Array.from({length: gp.totalSpaces + 1}).map((_,i)=>{
+          const isCurrent = i === gp.position;
+          const isGoalSpace = i === gp.totalSpaces;
+          const reached = i <= gp.position;
+          let content = "";
+          if(isCurrent) content = "🎃";
+          else if(isGoalSpace) content = "🏆";
+          return `<div class="board-space ${reached ? "reached" : ""} ${isCurrent ? "current" : ""} ${isGoalSpace ? "goal-space" : ""}">${content}</div>`;
+        }).join("");
+        const fillPct = gp.totalSpaces > 0 ? (gp.position / gp.totalSpaces) * 100 : 100;
+        return `
+          <div class="board-card">
+            <div class="board-header">
+              <span class="board-title">🎯 Goal: ${gp.goal} kg</span>
+              <span class="board-stat">${gp.currentWeight} / ${gp.goal} kg · ${gp.pct}%</span>
+            </div>
+            <div class="board-track-wrap" id="boardTrackWrap">
+              <div class="board-track" id="boardTrack">
+                <div class="board-line"></div>
+                <div class="board-line-fill" style="width:${fillPct}%"></div>
+                ${spaces}
+              </div>
+            </div>
+            <div class="board-caption">${gp.remaining > 0 ? `${gp.remaining} kg to go` : "Goal reached! 🎉 Set a new one?"}</div>
+          </div>
+        `;
+      })()}
       ${state.levelUpFlags[currentName] ? `
         <div class="levelup-banner">
           <span class="levelup-icon">⚡</span>
@@ -1513,6 +1632,34 @@
     const swapBtn = document.getElementById("sessionSwapBtn");
     if(swapBtn) swapBtn.addEventListener("click", ()=> openPicker(ex));
 
+    const incrementInput = document.getElementById("incrementInput");
+    if(incrementInput) incrementInput.addEventListener("change", ()=>{
+      const v = parseFloat(incrementInput.value);
+      if(Number.isNaN(v) || v <= 0){
+        delete state.customIncrements[currentName];
+      } else {
+        state.customIncrements[currentName] = v;
+      }
+      saveData();
+      showToast("Weight jump updated");
+    });
+
+    const goalInput = document.getElementById("goalInput");
+    if(goalInput) goalInput.addEventListener("change", ()=>{
+      const v = parseFloat(goalInput.value);
+      if(Number.isNaN(v) || v <= 0){
+        delete state.goals[currentName];
+      } else {
+        state.goals[currentName] = v;
+      }
+      saveData();
+      showToast("Goal updated");
+      renderSessionView();
+    });
+
+    const currentSpace = document.querySelector(".board-space.current");
+    if(currentSpace) currentSpace.scrollIntoView({ inline: "center", block: "nearest" });
+
     const completeBtn = document.getElementById("completeSetBtn");
     if(completeBtn) completeBtn.addEventListener("click", ()=>{
       commitSet(currentName, targetIdx, stepperWeight, stepperReps);
@@ -1527,7 +1674,7 @@
       let leveledUp = false;
       if(stepperReps >= ex.range[1]){
         leveledUp = true;
-        const inc = ex.mainLift ? 5 : 2.5;
+        const inc = getIncrement(ex, currentName);
         const suggestedWeight = Math.round((stepperWeight + inc) * 10) / 10;
         if(!state.levelUpFlags[currentName] || state.levelUpFlags[currentName].atWeight < stepperWeight){
           state.levelUpFlags[currentName] = { atWeight: stepperWeight, suggestedWeight };
@@ -1691,7 +1838,9 @@
     const block = document.createElement("div");
     block.className = "lift-block";
     const pr = points.length ? Math.max(...points.map(p=>p.y)) : null;
-    block.innerHTML = `<div class="lift-title"><span>${currentName}</span>${pr ? `<span class="pr">PR ${pr} lbs</span>` : ""}</div>`;
+    const gp = getGoalProgress(ex, currentName);
+    const badges = `${pr ? `<span class="pr">PR ${pr} kg</span>` : ""}${gp ? `<span class="pr" style="color:#ffd700;">🎯 ${gp.pct}%</span>` : ""}`;
+    block.innerHTML = `<div class="lift-title"><span>${currentName}</span><span style="display:flex; gap:8px; align-items:baseline;">${badges}</span></div>`;
 
     if(points.length < 2){
       const note = document.createElement("div");

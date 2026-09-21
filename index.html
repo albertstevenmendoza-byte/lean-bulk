@@ -1562,43 +1562,6 @@
         <input type="number" step="2.5" min="0" class="goal-input" id="goalInput" value="${state.goals[currentName] ?? ""}" placeholder="e.g. 100">
         <span>lbs</span>
       </div>
-      ${(()=>{
-        const gp = getGoalProgress(ex, currentName);
-        if(!gp) return "";
-        const prevPosition = lastBoardPositions[currentName];
-        const animateFrom = (prevPosition !== undefined && prevPosition !== gp.position) ? prevPosition : gp.position;
-        lastBoardPositions[currentName] = gp.position;
-
-        const centerX = i => 37 + i*58;
-        const spaces = Array.from({length: gp.totalSpaces + 1}).map((_,i)=>{
-          const isCurrent = i === gp.position;
-          const isGoalSpace = i === gp.totalSpaces;
-          const reached = i <= gp.position;
-          const content = (isGoalSpace && !isCurrent) ? "🏆" : "";
-          return `<div class="board-space ${reached ? "reached" : ""} ${isCurrent ? "current" : ""} ${isGoalSpace ? "goal-space" : ""}">${content}</div>`;
-        }).join("");
-        const startLeft = centerX(animateFrom);
-        const startFill = Math.max(0, centerX(animateFrom) - 20);
-        const targetLeft = centerX(gp.position);
-        const targetFill = Math.max(0, centerX(gp.position) - 20);
-        return `
-          <div class="board-card">
-            <div class="board-header">
-              <span class="board-title">🎯 Goal: ${gp.goal} lbs</span>
-              <span class="board-stat">${gp.currentWeight} / ${gp.goal} lbs · ${gp.pct}%</span>
-            </div>
-            <div class="board-track-wrap" id="boardTrackWrap">
-              <div class="board-track" id="boardTrack" data-target-left="${targetLeft}" data-target-fill="${targetFill}" data-moved="${animateFrom !== gp.position}">
-                <div class="board-line"></div>
-                <div class="board-line-fill" id="boardLineFill" style="width:${startFill}px"></div>
-                ${spaces}
-                <div class="board-character" id="boardCharacter" style="left:${startLeft}px"><span class="board-character-emoji" id="boardCharacterEmoji">🎃</span></div>
-              </div>
-            </div>
-            <div class="board-caption">${gp.remaining > 0 ? `${gp.remaining} lbs to go` : "Goal reached! 🎉 Set a new one?"}</div>
-          </div>
-        `;
-      })()}
       ${state.levelUpFlags[currentName] ? `
         <div class="levelup-banner">
           <span class="levelup-icon">⚡</span>
@@ -1621,6 +1584,44 @@
           `;
         }).join("")}
       </div>
+
+      ${(()=>{
+        const gp = getGoalProgress(ex, currentName);
+        if(!gp) return "";
+        const prevPosition = lastBoardPositions[currentName];
+        const animateFrom = (prevPosition !== undefined && prevPosition !== gp.position) ? prevPosition : gp.position;
+        lastBoardPositions[currentName] = gp.position;
+
+        const centerX = i => 37 + i*58;
+        const spaces = Array.from({length: gp.totalSpaces + 1}).map((_,i)=>{
+          const isCurrent = i === gp.position;
+          const isGoalSpace = i === gp.totalSpaces;
+          const reached = i <= gp.position;
+          const content = (isGoalSpace && !isCurrent) ? "🏆" : "";
+          return `<div class="board-space ${reached ? "reached" : ""} ${isCurrent ? "current" : ""} ${isGoalSpace ? "goal-space" : ""}">${content}</div>`;
+        }).join("");
+        const startLeft = centerX(animateFrom);
+        const startFill = Math.max(0, centerX(animateFrom) - 20);
+        const targetLeft = centerX(gp.position);
+        const targetFill = Math.max(0, centerX(gp.position) - 20);
+        return `
+          <div class="board-card" id="boardCard">
+            <div class="board-header">
+              <span class="board-title">🎯 Goal: ${gp.goal} lbs</span>
+              <span class="board-stat">${gp.currentWeight} / ${gp.goal} lbs · ${gp.pct}%</span>
+            </div>
+            <div class="board-track-wrap" id="boardTrackWrap">
+              <div class="board-track" id="boardTrack" data-target-left="${targetLeft}" data-target-fill="${targetFill}" data-moved="${animateFrom !== gp.position}">
+                <div class="board-line"></div>
+                <div class="board-line-fill" id="boardLineFill" style="width:${startFill}px"></div>
+                ${spaces}
+                <div class="board-character" id="boardCharacter" style="left:${startLeft}px"><span class="board-character-emoji" id="boardCharacterEmoji">🎃</span></div>
+              </div>
+            </div>
+            <div class="board-caption">${gp.remaining > 0 ? `${gp.remaining} lbs to go` : "Goal reached! 🎉 Set a new one?"}</div>
+          </div>
+        `;
+      })()}
     `;
 
     if(!showEditor){
@@ -1773,6 +1774,8 @@
       editingSetIndex = null;
       currentSetContext = null;
       renderSessionView();
+      const boardCard = document.getElementById("boardCard");
+      if(boardCard) boardCard.scrollIntoView({ behavior: "smooth", block: "center" });
       if(leveledUp) triggerPowerUp();
     });
 

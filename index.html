@@ -1245,28 +1245,76 @@
   let distortionCurve = null;
   function getDistortionCurve(){
     if(distortionCurve) return distortionCurve;
-    const amount = 500; // heavy, saturated crunch — not a gentle overdrive
     const samples = 4410;
     const curve = new Float32Array(samples);
-    const deg = Math.PI / 180;
     for(let i = 0; i < samples; i++){
       const x = (i * 2) / samples - 1;
-      curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
+      curve[i] = Math.tanh(x * 10); // hard, saturated clip — cranked-amp character, not a gentle overdrive
     }
     distortionCurve = curve;
     return curve;
   }
+  // A small amp simulation: two cascaded hard-clip stages (like a gain-boosted
+  // preamp into a distortion channel), then the classic "scooped mids" metal
+  // EQ curve — cut mids, boost bass and treble — followed by a cab-style
+  // low-pass so it doesn't turn into pure fizz.
+  function buildAmpChain(){
+    const dist1 = audioCtx.createWaveShaper();
+    dist1.curve = getDistortionCurve();
+    dist1.oversample = "4x";
+    const dist2 = audioCtx.createWaveShaper();
+    dist2.curve = getDistortionCurve();
+    dist2.oversample = "4x";
+    const bass = audioCtx.createBiquadFilter();
+    bass.type = "lowshelf"; bass.frequency.value = 120; bass.gain.value = 6;
+    const scoop = audioCtx.createBiquadFilter();
+    scoop.type = "peaking"; scoop.frequency.value = 700; scoop.Q.value = 1; scoop.gain.value = -10;
+    const presence = audioCtx.createBiquadFilter();
+    presence.type = "highshelf"; presence.frequency.value = 2800; presence.gain.value = 4;
+    const cab = audioCtx.createBiquadFilter();
+    cab.type = "lowpass"; cab.frequency.value = 5500; cab.Q.value = 0.7;
+
+    dist1.connect(dist2);
+    dist2.connect(bass);
+    bass.connect(scoop);
+    scoop.connect(presence);
+    presence.connect(cab);
+    return { input: dist1, output: cab };
+  }
+  // A burst of filtered noise at note-on — oscillators alone have no pick
+  // attack, and that transient is a big part of what reads as "guitar."
+  function playPickNoise(startTime, duration, peakGain){
+    const bufferSize = Math.max(1, Math.floor(audioCtx.sampleRate * duration));
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 2500;
+    filter.Q.value = 0.6;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(peakGain, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    noise.start(startTime);
+    noise.stop(startTime + duration);
+  }
   // A "power chord" — detuned double-tracked root + fifth + octave + a clean
-  // sub layer for low-end weight, all pushed through heavy distortion and a
-  // resonant low-pass (standing in for a cranked amp + cab), with a fast
-  // punchy attack so short notes read as palm-muted chugs.
+  // sub layer for low-end weight, each run through its own amp chain, with a
+  // pick-attack noise burst at the front so short notes read as palm-muted
+  // chugs instead of synth blips.
   function playPowerChord(rootFreq, startTime, duration, peakGain){
+    playPickNoise(startTime, 0.018, peakGain * 0.8);
     [
       { mult: 1,   type: "sawtooth", detune: -7, gainMul: 1,    clean: false },
       { mult: 1,   type: "sawtooth", detune: 7,  gainMul: 1,    clean: false },
-      { mult: 1.5, type: "sawtooth", detune: 0,  gainMul: 0.85, clean: false },
-      { mult: 2,   type: "square",   detune: 0,  gainMul: 0.6,  clean: false },
-      { mult: 0.5, type: "sine",     detune: 0,  gainMul: 0.5,  clean: true  } // sub-bass weight, kept clean
+      { mult: 1.5, type: "sawtooth", detune: 0,  gainMul: 0.8,  clean: false },
+      { mult: 2,   type: "sawtooth", detune: 0,  gainMul: 0.55, clean: false },
+      { mult: 0.5, type: "sine",     detune: 0,  gainMul: 0.55, clean: true  } // sub-bass weight, kept clean
     ].forEach(layer=>{
       const osc = audioCtx.createOscillator();
       osc.type = layer.type;
@@ -1276,22 +1324,15 @@
       const gain = audioCtx.createGain();
       const peak = peakGain * layer.gainMul;
       gain.gain.setValueAtTime(0.0001, startTime);
-      gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.007);
+      gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.006);
       gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
       if(layer.clean){
         osc.connect(gain);
       } else {
-        const distortion = audioCtx.createWaveShaper();
-        distortion.curve = getDistortionCurve();
-        distortion.oversample = "4x";
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.frequency.value = 3200;
-        filter.Q.value = 1.5;
-        osc.connect(distortion);
-        distortion.connect(filter);
-        filter.connect(gain);
+        const chain = buildAmpChain();
+        osc.connect(chain.input);
+        chain.output.connect(gain);
       }
       gain.connect(audioCtx.destination);
 
@@ -1305,13 +1346,13 @@
     const E2 = 82.41, A2 = 110.00;
     // Thrash-style "gallop" (long-short-short, x2) then a ringing power chord
     const gallop = start=>{
-      playPowerChord(E2, start,        0.11,  0.15);
-      playPowerChord(E2, start + 0.13, 0.055, 0.12);
-      playPowerChord(E2, start + 0.19, 0.055, 0.12);
+      playPowerChord(E2, start,        0.11,  0.12);
+      playPowerChord(E2, start + 0.13, 0.055, 0.10);
+      playPowerChord(E2, start + 0.19, 0.055, 0.10);
     };
     gallop(t0);
     gallop(t0 + 0.26);
-    playPowerChord(A2, t0 + 0.54, 0.5, 0.16);
+    playPowerChord(A2, t0 + 0.54, 0.5, 0.13);
 
     // A quick rising pinch-harmonic-style squeal leading into the final chord
     const squealStart = t0 + 0.5;

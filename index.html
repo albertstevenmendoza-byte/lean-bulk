@@ -1187,7 +1187,7 @@
   let distortionCurve = null;
   function getDistortionCurve(){
     if(distortionCurve) return distortionCurve;
-    const amount = 60;
+    const amount = 500; // heavy, saturated crunch — not a gentle overdrive
     const samples = 4410;
     const curve = new Float32Array(samples);
     const deg = Math.PI / 180;
@@ -1198,31 +1198,43 @@
     distortionCurve = curve;
     return curve;
   }
-  // A "power chord" — root + fifth + octave through a distortion curve and a
-  // low-pass filter (standing in for an overdriven amp + cab), with a fast
+  // A "power chord" — detuned double-tracked root + fifth + octave + a clean
+  // sub layer for low-end weight, all pushed through heavy distortion and a
+  // resonant low-pass (standing in for a cranked amp + cab), with a fast
   // punchy attack so short notes read as palm-muted chugs.
   function playPowerChord(rootFreq, startTime, duration, peakGain){
-    [1, 1.5, 2].forEach(mult=>{
+    [
+      { mult: 1,   type: "sawtooth", detune: -7, gainMul: 1,    clean: false },
+      { mult: 1,   type: "sawtooth", detune: 7,  gainMul: 1,    clean: false },
+      { mult: 1.5, type: "sawtooth", detune: 0,  gainMul: 0.85, clean: false },
+      { mult: 2,   type: "square",   detune: 0,  gainMul: 0.6,  clean: false },
+      { mult: 0.5, type: "sine",     detune: 0,  gainMul: 0.5,  clean: true  } // sub-bass weight, kept clean
+    ].forEach(layer=>{
       const osc = audioCtx.createOscillator();
-      osc.type = "sawtooth";
-      osc.frequency.value = rootFreq * mult;
-
-      const distortion = audioCtx.createWaveShaper();
-      distortion.curve = getDistortionCurve();
-      distortion.oversample = "4x";
-
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.value = 2200;
+      osc.type = layer.type;
+      osc.frequency.value = rootFreq * layer.mult;
+      osc.detune.value = layer.detune;
 
       const gain = audioCtx.createGain();
+      const peak = peakGain * layer.gainMul;
       gain.gain.setValueAtTime(0.0001, startTime);
-      gain.gain.exponentialRampToValueAtTime(peakGain, startTime + 0.012);
+      gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.007);
       gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
-      osc.connect(distortion);
-      distortion.connect(filter);
-      filter.connect(gain);
+      if(layer.clean){
+        osc.connect(gain);
+      } else {
+        const distortion = audioCtx.createWaveShaper();
+        distortion.curve = getDistortionCurve();
+        distortion.oversample = "4x";
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 3200;
+        filter.Q.value = 1.5;
+        osc.connect(distortion);
+        distortion.connect(filter);
+        filter.connect(gain);
+      }
       gain.connect(audioCtx.destination);
 
       osc.start(startTime);
@@ -1232,11 +1244,31 @@
   function playPowerUpSound(){
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
-    const E2 = 82.41, A2 = 110.00; // low root, then a ringing resolution chord
-    playPowerChord(E2, t0,         0.09, 0.22); // chug
-    playPowerChord(E2, t0 + 0.11,  0.09, 0.22); // chug
-    playPowerChord(E2, t0 + 0.22,  0.09, 0.22); // chug
-    playPowerChord(A2, t0 + 0.36,  0.42, 0.28); // wail
+    const E2 = 82.41, A2 = 110.00;
+    // Thrash-style "gallop" (long-short-short, x2) then a ringing power chord
+    const gallop = start=>{
+      playPowerChord(E2, start,        0.11,  0.15);
+      playPowerChord(E2, start + 0.13, 0.055, 0.12);
+      playPowerChord(E2, start + 0.19, 0.055, 0.12);
+    };
+    gallop(t0);
+    gallop(t0 + 0.26);
+    playPowerChord(A2, t0 + 0.54, 0.5, 0.16);
+
+    // A quick rising pinch-harmonic-style squeal leading into the final chord
+    const squealStart = t0 + 0.5;
+    const squeal = audioCtx.createOscillator();
+    const squealGain = audioCtx.createGain();
+    squeal.type = "square";
+    squeal.frequency.setValueAtTime(1800, squealStart);
+    squeal.frequency.exponentialRampToValueAtTime(3200, squealStart + 0.08);
+    squealGain.gain.setValueAtTime(0.0001, squealStart);
+    squealGain.gain.exponentialRampToValueAtTime(0.08, squealStart + 0.02);
+    squealGain.gain.exponentialRampToValueAtTime(0.0001, squealStart + 0.1);
+    squeal.connect(squealGain);
+    squealGain.connect(audioCtx.destination);
+    squeal.start(squealStart);
+    squeal.stop(squealStart + 0.12);
   }
   function triggerPowerUp(){
     ensureAudio().then(()=> playPowerUpSound());

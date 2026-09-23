@@ -436,6 +436,29 @@
   .quick-add-note:focus{ border-bottom-color: var(--fuel); outline:none; }
   .quick-add-note::placeholder{ color: var(--muted); }
 
+  .food-calc-toggle{
+    background:none; border:none; color: var(--fuel); font-weight:400; font-size:10px;
+    padding: 4px 0 14px; display:flex; align-items:center; gap:6px; font-family: var(--font-pixel); letter-spacing:0.01em;
+  }
+  .food-calc-card{
+    background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .food-select{
+    width:100%; background: var(--surface-2); border:1px solid var(--border); color: var(--text);
+    border-radius: var(--radius-sm); padding: 11px 10px; font-size:14px; margin-bottom:10px;
+  }
+  .food-calc-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .food-calc-row input{
+    width:90px; background: var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius: var(--radius-sm); padding: 10px; font-family: var(--font-mono); font-size:14px; text-align:center;
+  }
+  .food-calc-preview{ font-family: var(--font-mono); font-size:12.5px; color: var(--fuel); flex:1; min-width:0; }
+  .food-calc-add-btn{
+    width:100%; background: var(--fuel); color:#0d1e04; font-weight:400; border:none;
+    border-radius: var(--radius-lg); padding: 14px; font-size:10px; font-family: var(--font-pixel); letter-spacing:0.02em;
+  }
+
   /* Fuel — weight, demoted to a small pill (logged once, not the main event) */
   .weight-chip{
     display:flex; align-items:center; gap:8px; justify-content:center;
@@ -630,6 +653,18 @@
       <button class="quick-add-fab" id="addMealBtn" aria-label="Add meal">+</button>
     </div>
     <input type="text" id="mealLabelInput" class="quick-add-note" placeholder="note (optional) — e.g. lunch">
+
+    <button class="food-calc-toggle" id="foodCalcToggle">🍎 Calculate from food</button>
+    <div class="food-calc-card" id="foodCalcCard" hidden>
+      <select id="foodSelect" class="food-select">
+        <option value="">Choose a food…</option>
+      </select>
+      <div class="food-calc-row">
+        <input type="number" inputmode="decimal" id="foodGrams" placeholder="grams">
+        <span class="food-calc-preview" id="foodCalcPreview">Pick a food</span>
+      </div>
+      <button class="food-calc-add-btn" id="addFoodMealBtn">Add to log</button>
+    </div>
 
     <div class="weight-chip">
       <span class="weight-chip-label">Weight</span>
@@ -865,6 +900,29 @@
     unilateralLeg: ["Walking Lunge","Bulgarian Split Squat","Reverse Lunge","Step-Up","Curtsy Lunge"],
     quadIsolation: ["Leg Extension","Sissy Squat","Single-Leg Extension"],
     calfSeated: ["Seated Calf Raise","Standing Calf Raise","Leg Press Calf Raise"]
+  };
+
+  // kcal per gram, based on standard USDA-style nutrition data (raw/typical
+  // preparation unless noted). Estimates for planning, not lab-precise.
+  const FOOD_CALORIE_DENSITY = {
+    "Banana": 0.89, "Blueberries": 0.57, "Apple": 0.52, "Orange": 0.47,
+    "Strawberries": 0.32, "Grapes": 0.69, "Watermelon": 0.30, "Pineapple": 0.50,
+    "Mango": 0.60, "Avocado": 1.60,
+    "Broccoli": 0.34, "Spinach": 0.23, "Carrot": 0.41, "Sweet Potato (cooked)": 0.90,
+    "Potato (baked)": 0.93, "Tomato": 0.18, "Bell Pepper": 0.20, "Cucumber": 0.15,
+    "Lettuce": 0.15,
+    "Chicken Breast (cooked)": 1.65, "Ground Beef 85% (cooked)": 2.50, "Salmon (cooked)": 2.06,
+    "Egg (whole)": 1.55, "Egg White": 0.52, "Tuna (canned, water)": 1.16,
+    "Shrimp (cooked)": 0.99, "Turkey Breast (cooked)": 1.35, "Tofu (firm)": 0.76,
+    "White Rice (cooked)": 1.30, "Brown Rice (cooked)": 1.11, "Oats (dry)": 3.89,
+    "Quinoa (cooked)": 1.20, "Pasta (cooked)": 1.31, "White Bread": 2.65,
+    "Whole Wheat Bread": 2.47, "Flour Tortilla": 3.10,
+    "Whole Milk": 0.61, "Skim Milk": 0.34, "Greek Yogurt (nonfat)": 0.59,
+    "Cottage Cheese (low-fat)": 0.72, "Cheddar Cheese": 4.02, "Mozzarella": 2.80,
+    "Almonds": 5.79, "Peanut Butter": 5.88, "Peanuts": 5.67, "Walnuts": 6.54,
+    "Olive Oil": 8.84, "Butter": 7.17,
+    "Black Beans (cooked)": 1.32, "Lentils (cooked)": 1.16, "Chickpeas (cooked)": 1.64,
+    "Honey": 3.04, "Sugar": 3.87
   };
 
   const PROGRAM = [
@@ -2097,6 +2155,41 @@
     void hero.offsetWidth;
     hero.classList.add("pulse");
   }
+  function populateFoodSelect(){
+    const select = document.getElementById("foodSelect");
+    Object.keys(FOOD_CALORIE_DENSITY).sort().forEach(name=>{
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
+  }
+  function updateFoodCalcPreview(){
+    const food = document.getElementById("foodSelect").value;
+    const grams = parseFloat(document.getElementById("foodGrams").value);
+    const preview = document.getElementById("foodCalcPreview");
+    if(!food){ preview.textContent = "Pick a food"; return; }
+    const perGram = FOOD_CALORIE_DENSITY[food];
+    preview.textContent = (Number.isNaN(grams) || grams <= 0)
+      ? `${perGram.toFixed(2)} kcal/g`
+      : `= ${Math.round(grams * perGram)} kcal (${perGram.toFixed(2)} kcal/g)`;
+  }
+  function addFoodMeal(){
+    const food = document.getElementById("foodSelect").value;
+    const grams = parseFloat(document.getElementById("foodGrams").value);
+    if(!food || Number.isNaN(grams) || grams <= 0){ showToast("Pick a food and enter grams"); return; }
+    const kcal = Math.round(grams * FOOD_CALORIE_DENSITY[food]);
+    state.metrics.meals.push({ id: generateId(), date: todayISO(), kcal, label: `${food} (${grams}g)` });
+    saveData();
+    document.getElementById("foodGrams").value = "";
+    updateFoodCalcPreview();
+    showToast(`Added ${food} — ${kcal} kcal`);
+    renderFuel();
+    const hero = document.getElementById("fuelHero");
+    hero.classList.remove("pulse");
+    void hero.offsetWidth;
+    hero.classList.add("pulse");
+  }
   function deleteMeal(id){
     state.metrics.meals = state.metrics.meals.filter(m=>m.id!==id);
     saveData();
@@ -2294,6 +2387,15 @@
   }
 
   document.getElementById("addMealBtn").addEventListener("click", addMeal);
+
+  populateFoodSelect();
+  document.getElementById("foodCalcToggle").addEventListener("click", ()=>{
+    const card = document.getElementById("foodCalcCard");
+    card.hidden = !card.hidden;
+  });
+  document.getElementById("foodSelect").addEventListener("change", updateFoodCalcPreview);
+  document.getElementById("foodGrams").addEventListener("input", updateFoodCalcPreview);
+  document.getElementById("addFoodMealBtn").addEventListener("click", addFoodMeal);
 
   // ---------- 10-week evaluation ----------
   let evalSelfReport = { energy: "normal", recovery: "normal", appetite: "normal" };

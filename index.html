@@ -382,6 +382,12 @@
   .chart-label{ position:absolute; right:12px; font-family:var(--font-mono); font-size:10.5px; color:var(--muted); }
   .chart-label.max{ top:8px; }
   .chart-label.min{ bottom:6px; }
+  .fuel-chart-wrap{ border-color: rgba(126,232,58,0.25); }
+  .fuel-chart-wrap canvas.chart{ height:132px; }
+  .chart-legend{ display:flex; gap:16px; justify-content:center; margin-top:10px; font-family: var(--font-mono); font-size:11px; color: var(--muted); }
+  .chart-legend span{ display:flex; align-items:center; gap:6px; }
+  .legend-dot{ width:6px; height:6px; border-radius:50%; background: rgba(217,205,224,0.6); flex:0 0 auto; }
+  .legend-line{ width:14px; height:2.5px; border-radius:2px; background: #7ee83a; flex:0 0 auto; }
   .empty-note{ font-family: var(--font-mono); font-size:13px; color: var(--muted); padding: 12px 14px; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-md); }
 
   .settings-group{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); padding: 4px 16px; margin-bottom: 18px; }
@@ -2086,6 +2092,92 @@
     ctx.stroke();
   }
 
+  // Bodyweight chart: raw weigh-ins as faint scatter dots (low-contrast —
+  // they're noise, not the story), the 7-day trailing average as a smooth
+  // curve through quadratic-bezier midpoints (no jagged straight segments),
+  // in the Fuel tab's own toxic-green so it reads as distinct from the
+  // orange lift charts in Progress.
+  function drawBodyweightChart(canvas, rawPoints, avgPoints){
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w*dpr; canvas.height = h*dpr;
+    ctx.scale(dpr,dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.clearRect(0,0,w,h);
+    if(!rawPoints.length) return;
+
+    const padX = 10, padTop = 12, padBottom = 12;
+    const allValues = [...rawPoints.map(p=>p.y), ...avgPoints.map(p=>p.y)];
+    const min = Math.min(...allValues), max = Math.max(...allValues);
+    const range = (max-min) || 1;
+    const n = rawPoints.length;
+    const dateIndex = {};
+    rawPoints.forEach((p,i)=> dateIndex[p.x] = i);
+
+    const xForIndex = i => n===1 ? w/2 : padX + (i/(n-1))*(w-padX*2);
+    const yFor = v => h-padBottom - ((v-min)/range)*(h-padTop-padBottom);
+    const avgXFor = i => xForIndex(dateIndex[avgPoints[i].x]);
+
+    function smoothPath(getX, points){
+      ctx.moveTo(getX(0), yFor(points[0].y));
+      for(let i=1;i<points.length-1;i++){
+        const xc = (getX(i)+getX(i+1))/2;
+        const yc = (yFor(points[i].y)+yFor(points[i+1].y))/2;
+        ctx.quadraticCurveTo(getX(i), yFor(points[i].y), xc, yc);
+      }
+      if(points.length>=2){
+        const last = points.length-1;
+        ctx.quadraticCurveTo(getX(last-1), yFor(points[last-1].y), getX(last), yFor(points[last].y));
+      }
+    }
+
+    // Gradient fill under the smooth average line
+    if(avgPoints.length >= 2){
+      const grad = ctx.createLinearGradient(0,0,0,h);
+      grad.addColorStop(0, "rgba(126,232,58,0.28)");
+      grad.addColorStop(1, "rgba(126,232,58,0)");
+      ctx.beginPath();
+      smoothPath(avgXFor, avgPoints);
+      const last = avgPoints.length-1;
+      ctx.lineTo(avgXFor(last), h-padBottom);
+      ctx.lineTo(avgXFor(0), h-padBottom);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    // Faint raw scatter — background noise, not the headline
+    ctx.fillStyle = "rgba(217,205,224,0.32)";
+    rawPoints.forEach((p,i)=>{
+      ctx.beginPath();
+      ctx.arc(xForIndex(i), yFor(p.y), 2.5, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    // Smooth 7-day average line on top
+    ctx.strokeStyle = "#7ee83a";
+    ctx.lineWidth = 2.75;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    smoothPath(avgXFor, avgPoints);
+    ctx.stroke();
+
+    // Endpoint marker on the average line
+    const lastIdx = avgPoints.length-1;
+    ctx.beginPath();
+    ctx.arc(avgXFor(lastIdx), yFor(avgPoints[lastIdx].y), 4.5, 0, Math.PI*2);
+    ctx.fillStyle = "#7ee83a";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(avgXFor(lastIdx), yFor(avgPoints[lastIdx].y), 4.5, 0, Math.PI*2);
+    ctx.strokeStyle = "#0a0612";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   function renderLiftBlock(ex){
     const currentName = getExerciseName(ex);
     const logs = getExerciseLogs(currentName);
@@ -2146,6 +2238,17 @@
   // ---------- Fuel (bodyweight + per-meal calories) ----------
   function generateId(){ return `${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`; }
   function sortedWeight(){ return state.metrics.weight.slice().sort((a,b)=> a.date.localeCompare(b.date)); }
+  // For each raw weigh-in, average it with however many of the preceding 6
+  // days also have entries — smooths daily water/food noise into a trend
+  // line without needing a fixed number of data points to start.
+  function compute7DayTrailingAverages(rawPoints){
+    return rawPoints.map(p=>{
+      const windowStart = isoDateOffset(p.x, -6);
+      const windowPoints = rawPoints.filter(q => q.x >= windowStart && q.x <= p.x);
+      const avg = windowPoints.reduce((s,q)=> s+q.y, 0) / windowPoints.length;
+      return { x: p.x, y: Math.round(avg*10)/10 };
+    });
+  }
   function todaysMeals(){ const d = todayISO(); return state.metrics.meals.filter(m=>m.date===d); }
   function dailyCalorieTotals(){
     const totals = {};
@@ -2249,27 +2352,58 @@
     return totals.reduce((s,e)=> s+e.kcal, 0) / totals.length;
   }
 
-  // Trend: compares an early vs. late slice of a trailing 21-day window so a
-  // single noisy weigh-in (water, sodium, sleep) doesn't swing the estimate.
-  function computeTrend(){
+  function isoDateOffset(dateStr, days){
+    const [y,m,d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d); // local-time constructor — avoids the UTC-string-parsing pitfall
+    dt.setDate(dt.getDate() + days);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  }
+  // Non-overlapping 7-day buckets counting back from today. Index 0 is this
+  // week, index 1 is last week, etc. — only buckets with at least one weigh-in
+  // are returned, newest first.
+  function getWeeklyAverages(weeksBack){
+    const w = sortedWeight();
+    if(!w.length) return [];
+    const today = todayISO();
+    const weeks = [];
+    for(let i=0;i<weeksBack;i++){
+      const end = isoDateOffset(today, -7*i);
+      const start = isoDateOffset(end, -6);
+      const entries = w.filter(e=> e.date >= start && e.date <= end);
+      if(entries.length){
+        weeks.push({ start, end, avg: entries.reduce((s,e)=>s+e.lbs,0)/entries.length });
+      }
+    }
+    return weeks;
+  }
+  // Week-over-week average comparison instead of single-day deltas: needs at
+  // least a 2-week span (3 weekly averages) before it'll call a trend at all.
+  function computeWeeklyTrend(){
+    const weeks = getWeeklyAverages(4);
+    if(weeks.length < 3) return null;
+    const newest = weeks[0].avg;
+    const oldest = weeks[weeks.length-1].avg;
+    const weekSpan = weeks.length - 1;
+    const lbPerWeek = (newest - oldest) / weekSpan;
+    const pctPerWeek = (lbPerWeek / newest) * 100;
     const cutoff = daysAgoISO(21);
-    const w = sortedWeight().filter(e=>e.date >= cutoff);
     const c = dailyCalorieTotals().filter(e=>e.date >= cutoff);
-    if(w.length < 4) return null;
-
-    const chunk = Math.max(2, Math.floor(w.length/3));
-    const early = w.slice(0, chunk);
-    const late = w.slice(-chunk);
-    const avg = arr => arr.reduce((s,e)=> s+e.lbs, 0) / arr.length;
-    const earlyAvg = avg(early), lateAvg = avg(late);
-
-    const daysSpan = Math.max((new Date(late[late.length-1].date) - new Date(early[0].date)) / 864e5, 1);
-    const weeksSpan = Math.max(daysSpan/7, 0.5);
-    const lbPerWeek = (lateAvg - earlyAvg) / weeksSpan;
-
     const avgCal = c.length ? c.reduce((s,e)=> s+e.kcal, 0) / c.length : null;
-
-    return { lbPerWeek, currentWeight: lateAvg, pctPerWeek: (lbPerWeek/lateAvg)*100, avgCal, calDaysLogged: c.length };
+    return {
+      lbPerWeek, pctPerWeek, currentWeight: newest, avgCal, calDaysLogged: c.length,
+      weeksAvailable: weeks.length, flatOrDropping: pctPerWeek <= 0.05
+    };
+  }
+  // Used to gate the calorie-bump suggestion: only recommend eating more when
+  // weight isn't moving but lifts still are — if lifts are stalling too, more
+  // food isn't obviously the fix.
+  function areMainLiftsProgressing(){
+    const progress = computeLiftProgress(daysAgoISO(21));
+    const scored = progress.filter(l=>!l.insufficient);
+    if(!scored.length) return null;
+    const progressing = scored.filter(l=>l.delta > 0).length;
+    const stalled = scored.filter(l=>l.delta <= 0).length;
+    return progressing >= stalled;
   }
 
   function computeMaintenanceEstimate(currentWeightLbs){
@@ -2284,12 +2418,12 @@
   function renderSuggestion(){
     const wrap = document.getElementById("suggestionWrap");
     wrap.innerHTML = "";
-    const trend = computeTrend();
+    const trend = computeWeeklyTrend();
 
     if(!trend || trend.avgCal === null || trend.calDaysLogged < 4){
       const note = document.createElement("div");
       note.className = "empty-note";
-      note.textContent = "Log your bodyweight most days and your meals daily for a couple of weeks — once there's enough data, this will tell you whether to bump your intake up, hold, or pull back.";
+      note.textContent = "Log your bodyweight most days and your meals daily for a couple of weeks — once there's enough data, this will compare week-over-week averages and tell you whether to bump your intake up, hold, or pull back.";
       wrap.appendChild(note);
       return;
     }
@@ -2299,20 +2433,36 @@
     const diffLbPerWeek = targetLbPerWeek - trend.lbPerWeek;
     const kcalAdjust = Math.round((diffLbPerWeek * 3500/7) / 25) * 25;
     const tolerance = 0.06;
+    const rateText = `${trend.lbPerWeek>=0?"+":""}${trend.lbPerWeek.toFixed(2)} lb/week (${trend.pctPerWeek.toFixed(2)}%/week) over your last ${trend.weeksAvailable} weekly averages`;
 
     let verdict, cls, detail;
-    if(Math.abs(trend.pctPerWeek - targetRate) <= tolerance){
-      verdict = "Hold steady";
-      cls = "hold";
-      detail = `You're trending ${trend.lbPerWeek>=0?"+":""}${trend.lbPerWeek.toFixed(2)} lb/week (${trend.pctPerWeek.toFixed(2)}%/week) at roughly ${Math.round(trend.avgCal)} kcal/day — right in range for your ${targetRate}%/week target. No change needed.`;
-    } else if(diffLbPerWeek > 0){
-      verdict = `Bump up ~${Math.abs(kcalAdjust)} kcal/day`;
-      cls = "up";
-      detail = `Trending ${trend.lbPerWeek>=0?"+":""}${trend.lbPerWeek.toFixed(2)} lb/week (${trend.pctPerWeek.toFixed(2)}%/week) at ~${Math.round(trend.avgCal)} kcal/day — below your ${targetRate}%/week target. Try ~${Math.round(trend.avgCal + Math.abs(kcalAdjust))} kcal/day.`;
-    } else {
+    if(trend.pctPerWeek > targetRate + tolerance){
       verdict = `Pull back ~${Math.abs(kcalAdjust)} kcal/day`;
       cls = "down";
-      detail = `Trending ${trend.lbPerWeek>=0?"+":""}${trend.lbPerWeek.toFixed(2)} lb/week (${trend.pctPerWeek.toFixed(2)}%/week) at ~${Math.round(trend.avgCal)} kcal/day — above your ${targetRate}%/week target, which likely means more of the gain is fat. Try ~${Math.round(trend.avgCal - Math.abs(kcalAdjust))} kcal/day.`;
+      detail = `Trending ${rateText} at ~${Math.round(trend.avgCal)} kcal/day — above your ${targetRate}%/week target, which likely means more of the gain is fat. Try ~${Math.round(trend.avgCal - Math.abs(kcalAdjust))} kcal/day.`;
+    } else if(trend.flatOrDropping){
+      const liftsOk = areMainLiftsProgressing();
+      if(liftsOk === true){
+        verdict = `Bump up ~${Math.abs(kcalAdjust)} kcal/day`;
+        cls = "up";
+        detail = `Weight's been flat or dropping (${rateText}) while your main lifts are still moving up — that combination usually means there's room to eat more. Try ~${Math.round(trend.avgCal + Math.abs(kcalAdjust))} kcal/day.`;
+      } else if(liftsOk === false){
+        verdict = "Hold — check recovery first";
+        cls = "hold";
+        detail = `Weight's flat (${rateText}) and your main lifts have stalled too — before adding calories, it's worth looking at sleep, stress, or a deload rather than just eating more.`;
+      } else {
+        verdict = "Hold — not enough lift data";
+        cls = "hold";
+        detail = `Weight's flat (${rateText}), but there's not enough recent lift history yet to tell whether more food would actually help. Keep logging sets.`;
+      }
+    } else if(Math.abs(trend.pctPerWeek - targetRate) <= tolerance){
+      verdict = "Stay the course";
+      cls = "hold";
+      detail = `Trending ${rateText} at roughly ${Math.round(trend.avgCal)} kcal/day — right in range for your ${targetRate}%/week target. No change needed.`;
+    } else {
+      verdict = "Hold for now";
+      cls = "hold";
+      detail = `Trending ${rateText} — a bit slower than your ${targetRate}%/week target, but still moving in the right direction. Give it another week or two before changing anything.`;
     }
 
     const box = document.createElement("div");
@@ -2377,30 +2527,37 @@
       });
     }
 
-    // bodyweight chart
+    // bodyweight chart — raw weigh-ins as faint scatter, 7-day trailing average as the main smooth line
     const chartWrap = document.getElementById("fuelWeightChartWrap");
     chartWrap.innerHTML = "";
-    const points = sortedWeight().map(e=>({ x: e.date, y: e.lbs }));
-    if(points.length < 2){
+    const rawPoints = sortedWeight().map(e=>({ x: e.date, y: e.lbs }));
+    if(rawPoints.length < 2){
       const note = document.createElement("div");
       note.className = "empty-note";
-      note.textContent = points.length===0 ? "No bodyweight logs yet." : "Log one more day to see a trend line.";
+      note.textContent = rawPoints.length===0 ? "No bodyweight logs yet." : "Log one more day to see a trend line.";
       chartWrap.appendChild(note);
     } else {
+      const avgPoints = compute7DayTrailingAverages(rawPoints);
       const wrapEl = document.createElement("div");
-      wrapEl.className = "chart-wrap";
+      wrapEl.className = "chart-wrap fuel-chart-wrap";
       const canvas = document.createElement("canvas");
       canvas.className = "chart";
-      const values = points.map(p=>p.y);
+      const allValues = [...rawPoints.map(p=>p.y), ...avgPoints.map(p=>p.y)];
       const maxLabel = document.createElement("span");
       maxLabel.className = "chart-label max";
-      maxLabel.textContent = `${Math.max(...values).toFixed(1)} lbs`;
+      maxLabel.textContent = `${Math.max(...allValues).toFixed(1)} lbs`;
       const minLabel = document.createElement("span");
       minLabel.className = "chart-label min";
-      minLabel.textContent = `${Math.min(...values).toFixed(1)} lbs`;
+      minLabel.textContent = `${Math.min(...allValues).toFixed(1)} lbs`;
       wrapEl.appendChild(canvas); wrapEl.appendChild(maxLabel); wrapEl.appendChild(minLabel);
       chartWrap.appendChild(wrapEl);
-      requestAnimationFrame(()=> drawLineChart(canvas, points));
+
+      const legend = document.createElement("div");
+      legend.className = "chart-legend";
+      legend.innerHTML = `<span><span class="legend-dot"></span>Daily weigh-ins</span><span><span class="legend-line"></span>7-day average</span>`;
+      chartWrap.appendChild(legend);
+
+      requestAnimationFrame(()=> drawBodyweightChart(canvas, rawPoints, avgPoints));
     }
 
     // recent days (weight + total calories per day)

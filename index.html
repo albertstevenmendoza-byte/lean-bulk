@@ -938,7 +938,9 @@
       { slotId:"up-ohp", name:"Overhead Press", sets:3, range:[5,6], mainLift:true, restSeconds:150, category:"verticalPressHeavy" },
       { slotId:"up-pullup", name:"Weighted Pull-Up", sets:3, range:[5,6], restSeconds:150, category:"verticalPullHeavy" },
       { slotId:"up-tricep", name:"Dip / Close-Grip Bench", sets:3, range:[6,8], restSeconds:120, category:"tricepsCompound" },
-      { slotId:"up-curl", name:"EZ-Bar Curl", sets:2, range:[6,8], restSeconds:90, category:"bicepsCompound" }
+      { slotId:"up-curl", name:"EZ-Bar Curl", sets:2, range:[6,8], restSeconds:90, category:"bicepsCompound" },
+      { slotId:"up-lateral", name:"Lateral Raise", sets:4, range:[12,15], restSeconds:60, category:"lateralDelt" },
+      { slotId:"up-shrug", name:"Shrugs", sets:3, range:[10,15], restSeconds:75, category:null }
     ]},
     { id:"lower-power", name:"Lower Power", type:"power", exercises:[
       { slotId:"lp-squat", name:"Squat", sets:4, range:[3,5], mainLift:true, restSeconds:180, category:"squatHeavy" },
@@ -950,12 +952,13 @@
       { slotId:"ph-incline", name:"Incline DB Press", sets:4, range:[8,12], restSeconds:120, category:"inclinePress" },
       { slotId:"ph-chestpress", name:"Machine/Cable Chest Press", sets:3, range:[10,15], restSeconds:90, category:"flatPressMachine" },
       { slotId:"ph-shoulderpress", name:"Seated DB Shoulder Press", sets:3, range:[8,12], restSeconds:120, category:"dbShoulderPress" },
-      { slotId:"ph-lateral", name:"Lateral Raise", sets:3, range:[12,15], restSeconds:60, category:"lateralDelt" },
+      { slotId:"ph-lateral", name:"Lateral Raise", sets:5, range:[12,15], restSeconds:60, category:"lateralDelt" },
       { slotId:"ph-pushdown", name:"Triceps Rope Pushdown", sets:3, range:[10,15], restSeconds:75, category:"tricepsPushdown" },
       { slotId:"ph-ohtricep", name:"Overhead Triceps Extension", sets:2, range:[10,15], restSeconds:75, category:"tricepsOverhead" }
     ]},
     { id:"pull", name:"Pull Hypertrophy", type:"hypertrophy", exercises:[
       { slotId:"pl-lat", name:"Lat Pulldown / Pull-Up", sets:4, range:[8,12], restSeconds:120, category:"verticalPullHyper" },
+      { slotId:"pl-pulldown", name:"Lat Pulldown", sets:4, range:[10,12], restSeconds:90, category:"verticalPullHyper" },
       { slotId:"pl-row", name:"Chest-Supported Row", sets:3, range:[10,12], restSeconds:120, category:"horizontalPullHyper" },
       { slotId:"pl-facepull", name:"Face Pull", sets:3, range:[12,15], restSeconds:60, category:"rearDelt" },
       { slotId:"pl-curl", name:"DB/Cable Curl", sets:3, range:[10,12], restSeconds:75, category:"bicepsIsolation" },
@@ -967,7 +970,8 @@
       { slotId:"lg-legcurl", name:"Leg Curl", sets:3, range:[10,12], restSeconds:90, category:"hamstringIsolation" },
       { slotId:"lg-lunge", name:"Walking Lunge", sets:3, range:[10,12], restSeconds:90, category:"unilateralLeg" },
       { slotId:"lg-legext", name:"Leg Extension", sets:2, range:[12,15], restSeconds:75, category:"quadIsolation" },
-      { slotId:"lg-calf", name:"Seated Calf Raise", sets:3, range:[10,15], restSeconds:60, category:"calfSeated" }
+      { slotId:"lg-calf", name:"Seated Calf Raise", sets:3, range:[10,15], restSeconds:60, category:"calfSeated" },
+      { slotId:"lg-lateral", name:"DB Lateral Raise", sets:4, range:[12,15], restSeconds:60, category:"lateralDelt" }
     ]}
   ];
 
@@ -986,38 +990,45 @@
       meta: {
         startDate: todayISO(), lastDeload: todayISO(),
         sex: "male", age: null, heightIn: null, activity: "1.375",
-        goalType: "bulk", targetRatePct: null, lastEvaluationDate: null, unitsConvertedToLbs: true
+        goalType: "bulk", targetRatePct: null, lastEvaluationDate: null, unitsConvertedToLbs: true,
+        pre0917DoubleConversionRepaired: true, physiqueUpdateOct2026Applied: true
       },
       logs: {}, overrides: {}, extraExercises: {}, evaluations: [], levelUpFlags: {}, customIncrements: {}, goals: {},
       metrics: { weight: [], meals: [] }
     };
   }
+  // Shared by both the normal page-load path and manual JSON import, so a
+  // backup brought in later still gets every default field and one-time
+  // repair applied, not just whatever was already in localStorage.
+  function ensureStateDefaults(parsed){
+    if(!parsed.overrides) parsed.overrides = {};
+    if(!parsed.extraExercises) parsed.extraExercises = {};
+    if(!parsed.evaluations) parsed.evaluations = [];
+    if(!parsed.levelUpFlags) parsed.levelUpFlags = {};
+    if(!parsed.customIncrements) parsed.customIncrements = {};
+    if(!parsed.goals) parsed.goals = {};
+    if(!parsed.metrics) parsed.metrics = {};
+    if(!parsed.metrics.weight) parsed.metrics.weight = [];
+    if(!parsed.metrics.meals){
+      // migrate a prior single-daily-total save into one meal per day
+      parsed.metrics.meals = Array.isArray(parsed.metrics.calories)
+        ? parsed.metrics.calories.map(e=> ({ id: generateId(), date: e.date, kcal: e.kcal, label: null }))
+        : [];
+    }
+    delete parsed.metrics.calories;
+    const bioDefaults = {
+      sex:"male", age:null, heightIn:null, activity:"1.375", goalType:"bulk", targetRatePct:null, lastEvaluationDate:null,
+      unitsConvertedToLbs:false, pre0917DoubleConversionRepaired:false, physiqueUpdateOct2026Applied:false
+    };
+    Object.keys(bioDefaults).forEach(k=>{
+      if(parsed.meta[k] === undefined) parsed.meta[k] = bioDefaults[k];
+    });
+    return parsed;
+  }
   function loadData(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        const parsed = JSON.parse(raw);
-        if(!parsed.overrides) parsed.overrides = {};
-        if(!parsed.extraExercises) parsed.extraExercises = {};
-        if(!parsed.evaluations) parsed.evaluations = [];
-        if(!parsed.levelUpFlags) parsed.levelUpFlags = {};
-        if(!parsed.customIncrements) parsed.customIncrements = {};
-        if(!parsed.goals) parsed.goals = {};
-        if(!parsed.metrics) parsed.metrics = {};
-        if(!parsed.metrics.weight) parsed.metrics.weight = [];
-        if(!parsed.metrics.meals){
-          // migrate a prior single-daily-total save into one meal per day
-          parsed.metrics.meals = Array.isArray(parsed.metrics.calories)
-            ? parsed.metrics.calories.map(e=> ({ id: generateId(), date: e.date, kcal: e.kcal, label: null }))
-            : [];
-        }
-        delete parsed.metrics.calories;
-        const bioDefaults = { sex:"male", age:null, heightIn:null, activity:"1.375", goalType:"bulk", targetRatePct:null, lastEvaluationDate:null, unitsConvertedToLbs:false };
-        Object.keys(bioDefaults).forEach(k=>{
-          if(parsed.meta[k] === undefined) parsed.meta[k] = bioDefaults[k];
-        });
-        return parsed;
-      }
+      if(raw) return ensureStateDefaults(JSON.parse(raw));
     }catch(e){ console.warn("Could not read storage", e); }
     return blankState();
   }
@@ -1064,8 +1075,54 @@
     runKgToLbsConversion();
   }
 
+  // One-time repair: entries dated 2026-09-17 or earlier were already in lbs
+  // but got run through the kg->lbs conversion a second time, inflating them
+  // by ~2.2x. Entries from 2026-09-18 on are correct and untouched. Only
+  // values >= 10 are touched, since small numbers (bodyweight pull-up added
+  // weight, etc.) were never meaningfully affected by the bug.
+  function repairPre0917DoubleConversion(){
+    if(state.meta.pre0917DoubleConversionRepaired) return;
+    const CUTOFF = "2026-09-17";
+    const FACTOR = 2.2046;
+    const fix = w => (w === null || w === undefined || w < 10) ? w : Math.round((w / FACTOR) * 2) / 2;
+
+    Object.keys(state.logs).forEach(name=>{
+      state.logs[name].forEach(entry=>{
+        if(entry.date <= CUTOFF){
+          entry.sets.forEach(s=>{
+            if(s && s.weight !== null && s.weight !== undefined) s.weight = fix(s.weight);
+          });
+        }
+      });
+    });
+    // Two level-up flags were generated during the inflated era and never
+    // cleared since; everything else already matched the corrected scale.
+    if(state.levelUpFlags["Incline DB Press"]){
+      state.levelUpFlags["Incline DB Press"].atWeight = fix(state.levelUpFlags["Incline DB Press"].atWeight);
+      state.levelUpFlags["Incline DB Press"].suggestedWeight = fix(state.levelUpFlags["Incline DB Press"].suggestedWeight);
+    }
+    delete state.levelUpFlags["Cable Lateral Raise"]; // stale/orphaned flag, inconsistent with current working weight either way — it'll regenerate correctly next time
+
+    state.meta.pre0917DoubleConversionRepaired = true;
+    saveData();
+  }
+
+  // One-time program update for the Oct 2026 physique priorities (side delts,
+  // lat width, upper-chest bias). Only touches the two overrides that
+  // actively worked against the new goals; every other override is left as
+  // the user set it. New exercise slots live directly in PROGRAM above.
+  function applyPhysiqueProgramUpdate(){
+    if(state.meta.physiqueUpdateOct2026Applied) return;
+    state.overrides["up-bench"] = "Incline Barbell Press"; // was Dumbbell Bench Press (flat) — majority of pressing needed to be incline-biased
+    state.overrides["ph-chestpress"] = "Low-to-High Cable Fly"; // was Decline Bench Press — decline actively works against an upper-chest priority
+    state.meta.physiqueUpdateOct2026Applied = true;
+    saveData();
+  }
+
   let state = loadData();
   migrateExerciseWeightsToLbs();
+  repairPre0917DoubleConversion();
+  applyPhysiqueProgramUpdate();
   let activeDayId = PROGRAM[0].id;
 
   function getExerciseName(slot){
@@ -2844,8 +2901,13 @@
       try{
         const parsed = JSON.parse(evt.target.result);
         if(parsed && parsed.logs && parsed.meta){
-          if(!parsed.overrides) parsed.overrides = {};
-          state = parsed; saveData(); renderAll(); showToast("Backup imported");
+          state = ensureStateDefaults(parsed);
+          saveData();
+          migrateExerciseWeightsToLbs();
+          repairPre0917DoubleConversion();
+          applyPhysiqueProgramUpdate();
+          renderAll();
+          showToast("Backup imported");
         } else {
           showToast("File format not recognized");
         }

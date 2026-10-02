@@ -1305,132 +1305,25 @@
   }
 
   // ---------- Power-up (dynamic double progression) ----------
-  let distortionCurve = null;
-  function getDistortionCurve(){
-    if(distortionCurve) return distortionCurve;
-    const samples = 4410;
-    const curve = new Float32Array(samples);
-    for(let i = 0; i < samples; i++){
-      const x = (i * 2) / samples - 1;
-      curve[i] = Math.tanh(x * 10); // hard, saturated clip — cranked-amp character, not a gentle overdrive
-    }
-    distortionCurve = curve;
-    return curve;
-  }
-  // A small amp simulation: two cascaded hard-clip stages (like a gain-boosted
-  // preamp into a distortion channel), then the classic "scooped mids" metal
-  // EQ curve — cut mids, boost bass and treble — followed by a cab-style
-  // low-pass so it doesn't turn into pure fizz.
-  function buildAmpChain(){
-    const dist1 = audioCtx.createWaveShaper();
-    dist1.curve = getDistortionCurve();
-    dist1.oversample = "4x";
-    const dist2 = audioCtx.createWaveShaper();
-    dist2.curve = getDistortionCurve();
-    dist2.oversample = "4x";
-    const bass = audioCtx.createBiquadFilter();
-    bass.type = "lowshelf"; bass.frequency.value = 120; bass.gain.value = 6;
-    const scoop = audioCtx.createBiquadFilter();
-    scoop.type = "peaking"; scoop.frequency.value = 700; scoop.Q.value = 1; scoop.gain.value = -10;
-    const presence = audioCtx.createBiquadFilter();
-    presence.type = "highshelf"; presence.frequency.value = 2800; presence.gain.value = 4;
-    const cab = audioCtx.createBiquadFilter();
-    cab.type = "lowpass"; cab.frequency.value = 5500; cab.Q.value = 0.7;
-
-    dist1.connect(dist2);
-    dist2.connect(bass);
-    bass.connect(scoop);
-    scoop.connect(presence);
-    presence.connect(cab);
-    return { input: dist1, output: cab };
-  }
-  // A burst of filtered noise at note-on — oscillators alone have no pick
-  // attack, and that transient is a big part of what reads as "guitar."
-  function playPickNoise(startTime, duration, peakGain){
-    const bufferSize = Math.max(1, Math.floor(audioCtx.sampleRate * duration));
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 2500;
-    filter.Q.value = 0.6;
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(peakGain, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(audioCtx.destination);
-    noise.start(startTime);
-    noise.stop(startTime + duration);
-  }
-  // A "power chord" — detuned double-tracked root + fifth + octave + a clean
-  // sub layer for low-end weight, each run through its own amp chain, with a
-  // pick-attack noise burst at the front so short notes read as palm-muted
-  // chugs instead of synth blips.
-  function playPowerChord(rootFreq, startTime, duration, peakGain){
-    playPickNoise(startTime, 0.018, peakGain * 0.8);
-    [
-      { mult: 1,   type: "sawtooth", detune: -7, gainMul: 1,    clean: false },
-      { mult: 1,   type: "sawtooth", detune: 7,  gainMul: 1,    clean: false },
-      { mult: 1.5, type: "sawtooth", detune: 0,  gainMul: 0.8,  clean: false },
-      { mult: 2,   type: "sawtooth", detune: 0,  gainMul: 0.55, clean: false },
-      { mult: 0.5, type: "sine",     detune: 0,  gainMul: 0.55, clean: true  } // sub-bass weight, kept clean
-    ].forEach(layer=>{
-      const osc = audioCtx.createOscillator();
-      osc.type = layer.type;
-      osc.frequency.value = rootFreq * layer.mult;
-      osc.detune.value = layer.detune;
-
-      const gain = audioCtx.createGain();
-      const peak = peakGain * layer.gainMul;
-      gain.gain.setValueAtTime(0.0001, startTime);
-      gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.006);
-      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-      if(layer.clean){
-        osc.connect(gain);
-      } else {
-        const chain = buildAmpChain();
-        osc.connect(chain.input);
-        chain.output.connect(gain);
-      }
-      gain.connect(audioCtx.destination);
-
-      osc.start(startTime);
-      osc.stop(startTime + duration + 0.02);
-    });
-  }
+  // Classic 8-bit "power up" jingle — a bright square-wave arpeggio climbing
+  // up the scale, like a coin/power-up pickup in an old arcade or NES game.
+  // Matches the app's pixel-font theme a lot better than trying to fake a
+  // real guitar out of oscillators ever did.
   function playPowerUpSound(){
     if(!audioCtx) return;
-    const t0 = audioCtx.currentTime;
-    const E2 = 82.41, A2 = 110.00;
-    // Thrash-style "gallop" (long-short-short, x2) then a ringing power chord
-    const gallop = start=>{
-      playPowerChord(E2, start,        0.11,  0.12);
-      playPowerChord(E2, start + 0.13, 0.055, 0.10);
-      playPowerChord(E2, start + 0.19, 0.055, 0.10);
-    };
-    gallop(t0);
-    gallop(t0 + 0.26);
-    playPowerChord(A2, t0 + 0.54, 0.5, 0.13);
-
-    // A quick rising pinch-harmonic-style squeal leading into the final chord
-    const squealStart = t0 + 0.5;
-    const squeal = audioCtx.createOscillator();
-    const squealGain = audioCtx.createGain();
-    squeal.type = "square";
-    squeal.frequency.setValueAtTime(1800, squealStart);
-    squeal.frequency.exponentialRampToValueAtTime(3200, squealStart + 0.08);
-    squealGain.gain.setValueAtTime(0.0001, squealStart);
-    squealGain.gain.exponentialRampToValueAtTime(0.08, squealStart + 0.02);
-    squealGain.gain.exponentialRampToValueAtTime(0.0001, squealStart + 0.1);
-    squeal.connect(squealGain);
-    squealGain.connect(audioCtx.destination);
-    squeal.start(squealStart);
-    squeal.stop(squealStart + 0.12);
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i)=>{ // C5 E5 G5 C6
+      const delay = i * 0.09;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + delay + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + delay + 0.14);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + 0.16);
+    });
   }
   function triggerPowerUp(){
     ensureAudio().then(()=> playPowerUpSound());

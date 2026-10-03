@@ -220,6 +220,32 @@
   .overview-ex-row .oer-status.done svg{ width:16px; height:16px; }
   .overview-ex-row .oer-chevron{ color: var(--muted); flex:0 0 auto; font-size:18px; }
 
+  /* Train — cardio */
+  .cardio-card{ margin-bottom: 10px; }
+  .cardio-row{ display:flex; gap:10px; margin: 10px 0; }
+  .cardio-row input{
+    background: var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius: var(--radius-sm); padding:10px; font-family: var(--font-mono); font-size:13px;
+  }
+  .cardio-row input:first-child{ width:92px; text-align:center; }
+  .cardio-row input:last-child{ flex:1; min-width:0; }
+  .cardio-log-btn{
+    width:100%; background: var(--power); color:#180a24; font-weight:400; border:none;
+    border-radius: var(--radius-lg); padding:14px; font-size:10px; font-family: var(--font-pixel); letter-spacing:0.02em;
+  }
+  .cardio-week-stat{ font-family: var(--font-mono); font-size:12px; color: var(--muted); margin: 2px 0 12px; text-align:center; }
+  .cardio-log-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .cardio-log-row{
+    display:flex; align-items:center; gap:10px;
+    background: var(--surface); border:1px solid var(--border); border-left:3px solid var(--power);
+    border-radius: var(--radius-sm); padding:11px 12px; font-family: var(--font-mono); font-size:13px;
+  }
+  .cardio-log-row .clr-date{ color: var(--text-secondary); font-weight:600; flex:0 0 auto; }
+  .cardio-log-row .clr-type{ flex:1; min-width:0; color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cardio-log-row .clr-mins{ color: var(--power); font-weight:700; flex:0 0 auto; }
+  .cardio-log-row .clr-del{ background:none; border:none; color: var(--muted); font-size:16px; font-weight:700; padding:2px 4px; flex:0 0 auto; }
+  .cardio-log-row .clr-del:active{ color: var(--danger); }
+
   /* Train — session header */
   .session-header{ display:flex; align-items:center; gap:10px; margin-bottom:20px; }
   .session-back{ background:none; border:none; color: var(--text); font-size:22px; padding:2px 6px 2px 0; line-height:1; }
@@ -624,6 +650,26 @@
       <div class="day-picker" id="dayPicker"></div>
       <button class="start-workout-btn" id="startWorkoutBtn">Start workout →</button>
       <div id="overviewExerciseList"></div>
+
+      <h2 class="section-title">Cardio</h2>
+      <div class="card cardio-card">
+        <select id="cardioType" class="food-select">
+          <option value="Running">Running</option>
+          <option value="Cycling">Cycling</option>
+          <option value="Rowing">Rowing</option>
+          <option value="Elliptical">Elliptical</option>
+          <option value="Incline Walk">Incline Walk</option>
+          <option value="Swimming">Swimming</option>
+          <option value="Other">Other</option>
+        </select>
+        <div class="cardio-row">
+          <input type="number" inputmode="numeric" id="cardioMinutes" placeholder="minutes">
+          <input type="text" id="cardioNote" placeholder="note (optional)">
+        </div>
+        <button class="cardio-log-btn" id="logCardioBtn">Log Cardio</button>
+      </div>
+      <div class="cardio-week-stat" id="cardioWeekStat"></div>
+      <div class="cardio-log-list" id="cardioLogList"></div>
     </div>
 
     <div id="trainSession" hidden>
@@ -905,7 +951,8 @@
     hamstringIsolation: ["Leg Curl","Lying Leg Curl","Seated Leg Curl","Nordic Curl","Single-Leg Curl"],
     unilateralLeg: ["Walking Lunge","Bulgarian Split Squat","Reverse Lunge","Step-Up","Curtsy Lunge"],
     quadIsolation: ["Leg Extension","Sissy Squat","Single-Leg Extension"],
-    calfSeated: ["Seated Calf Raise","Standing Calf Raise","Leg Press Calf Raise"]
+    calfSeated: ["Seated Calf Raise","Standing Calf Raise","Leg Press Calf Raise"],
+    abs: ["Cable Crunch","Hanging Leg Raise","Ab Wheel Rollout","Weighted Sit-Up","Decline Sit-Up","Captain's Chair Leg Raise"]
   };
 
   // kcal per gram, based on standard USDA-style nutrition data (raw/typical
@@ -946,7 +993,8 @@
       { slotId:"lp-squat", name:"Squat", sets:4, range:[3,5], mainLift:true, restSeconds:180, category:"squatHeavy" },
       { slotId:"lp-rdl", name:"Romanian Deadlift", sets:3, range:[4,6], restSeconds:180, category:"hinge" },
       { slotId:"lp-legpress", name:"Leg Press", sets:3, range:[6,8], restSeconds:150, category:"quadPressMachine" },
-      { slotId:"lp-calf", name:"Standing Calf Raise", sets:4, range:[6,8], restSeconds:90, category:"calfStanding" }
+      { slotId:"lp-calf", name:"Standing Calf Raise", sets:4, range:[6,8], restSeconds:90, category:"calfStanding" },
+      { slotId:"lp-abs", name:"Cable Crunch", sets:3, range:[12,15], restSeconds:60, category:"abs" }
     ]},
     { id:"push", name:"Push Hypertrophy", type:"hypertrophy", exercises:[
       { slotId:"ph-incline", name:"Incline DB Press", sets:4, range:[8,12], restSeconds:120, category:"inclinePress" },
@@ -971,7 +1019,8 @@
       { slotId:"lg-lunge", name:"Walking Lunge", sets:3, range:[10,12], restSeconds:90, category:"unilateralLeg" },
       { slotId:"lg-legext", name:"Leg Extension", sets:2, range:[12,15], restSeconds:75, category:"quadIsolation" },
       { slotId:"lg-calf", name:"Seated Calf Raise", sets:3, range:[10,15], restSeconds:60, category:"calfSeated" },
-      { slotId:"lg-lateral", name:"DB Lateral Raise", sets:4, range:[12,15], restSeconds:60, category:"lateralDelt" }
+      { slotId:"lg-lateral", name:"DB Lateral Raise", sets:4, range:[12,15], restSeconds:60, category:"lateralDelt" },
+      { slotId:"lg-abs", name:"Hanging Leg Raise", sets:3, range:[10,15], restSeconds:75, category:"abs" }
     ]}
   ];
 
@@ -994,6 +1043,7 @@
         pre0917DoubleConversionRepaired: true, physiqueUpdateOct2026Applied: true
       },
       logs: {}, overrides: {}, extraExercises: {}, evaluations: [], levelUpFlags: {}, customIncrements: {}, goals: {},
+      cardioLogs: [],
       metrics: { weight: [], meals: [] }
     };
   }
@@ -1007,6 +1057,7 @@
     if(!parsed.levelUpFlags) parsed.levelUpFlags = {};
     if(!parsed.customIncrements) parsed.customIncrements = {};
     if(!parsed.goals) parsed.goals = {};
+    if(!parsed.cardioLogs) parsed.cardioLogs = [];
     if(!parsed.metrics) parsed.metrics = {};
     if(!parsed.metrics.weight) parsed.metrics.weight = [];
     if(!parsed.metrics.meals){
@@ -1970,7 +2021,7 @@
     renderDayPicker();
     document.getElementById("trainOverview").hidden = trainMode !== "overview";
     document.getElementById("trainSession").hidden = trainMode !== "session";
-    if(trainMode === "overview") renderOverviewList();
+    if(trainMode === "overview"){ renderOverviewList(); renderCardioSection(); }
     else renderSessionView();
   }
 
@@ -1979,6 +2030,58 @@
     enterSession(activeDayId, firstIncompleteIndex(day));
   });
   document.getElementById("sessionBackBtn").addEventListener("click", exitSession);
+
+  // ---------- Cardio (quick standalone log, not tied to a training day) ----------
+  function getCardioThisWeek(){
+    const cutoff = daysAgoISO(6);
+    const entries = state.cardioLogs.filter(c=> c.date >= cutoff);
+    return { count: entries.length, totalMinutes: entries.reduce((s,c)=> s + c.minutes, 0) };
+  }
+  function renderCardioSection(){
+    const week = getCardioThisWeek();
+    document.getElementById("cardioWeekStat").textContent = week.count
+      ? `This week: ${week.count} session${week.count>1?"s":""}, ${week.totalMinutes} min`
+      : "No cardio logged this week yet";
+
+    const listEl = document.getElementById("cardioLogList");
+    listEl.innerHTML = "";
+    const recent = state.cardioLogs.slice().sort((a,b)=> b.date.localeCompare(a.date)).slice(0,8);
+    if(!recent.length){
+      const note = document.createElement("div");
+      note.className = "empty-note";
+      note.textContent = "No cardio logged yet.";
+      listEl.appendChild(note);
+    } else {
+      recent.forEach(c=>{
+        const row = document.createElement("div");
+        row.className = "cardio-log-row";
+        row.innerHTML = `<span class="clr-date">${c.date}</span><span class="clr-type">${c.type}${c.notes ? ` — ${c.notes}` : ""}</span><span class="clr-mins">${c.minutes} min</span><button class="clr-del" data-id="${c.id}" aria-label="Delete">&times;</button>`;
+        listEl.appendChild(row);
+      });
+    }
+  }
+  function logCardio(){
+    const type = document.getElementById("cardioType").value;
+    const minutes = parseFloat(document.getElementById("cardioMinutes").value);
+    const notes = document.getElementById("cardioNote").value.trim();
+    if(Number.isNaN(minutes) || minutes <= 0){ showToast("Enter minutes"); return; }
+    state.cardioLogs.push({ id: generateId(), date: todayISO(), type, minutes, notes: notes || null });
+    saveData();
+    document.getElementById("cardioMinutes").value = "";
+    document.getElementById("cardioNote").value = "";
+    showToast(`Logged ${minutes} min ${type}`);
+    renderCardioSection();
+  }
+  function deleteCardioLog(id){
+    state.cardioLogs = state.cardioLogs.filter(c=> c.id!==id);
+    saveData();
+    renderCardioSection();
+  }
+  document.getElementById("logCardioBtn").addEventListener("click", logCardio);
+  document.getElementById("cardioLogList").addEventListener("click", e=>{
+    const btn = e.target.closest(".clr-del");
+    if(btn) deleteCardioLog(btn.dataset.id);
+  });
 
   // ---------- Progress view ----------
   function drawLineChart(canvas, points){

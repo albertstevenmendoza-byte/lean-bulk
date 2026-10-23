@@ -1084,7 +1084,7 @@
         pre0917DoubleConversionRepaired: true, physiqueUpdateOct2026Applied: true
       },
       logs: {}, overrides: {}, extraExercises: {}, evaluations: [], levelUpFlags: {}, customIncrements: {}, goals: {},
-      cardioLogs: [],
+      cardioLogs: [], goalCelebrations: {},
       metrics: { weight: [], meals: [] }
     };
   }
@@ -1099,6 +1099,7 @@
     if(!parsed.customIncrements) parsed.customIncrements = {};
     if(!parsed.goals) parsed.goals = {};
     if(!parsed.cardioLogs) parsed.cardioLogs = [];
+    if(!parsed.goalCelebrations) parsed.goalCelebrations = {};
     if(!parsed.metrics) parsed.metrics = {};
     if(!parsed.metrics.weight) parsed.metrics.weight = [];
     if(!parsed.metrics.meals){
@@ -2036,7 +2037,6 @@
 
     const completeBtn = document.getElementById("completeSetBtn");
     if(completeBtn) completeBtn.addEventListener("click", ()=>{
-      const gpBefore = getGoalProgress(ex, currentName);
       commitSet(currentName, targetIdx, stepperWeight, stepperReps);
 
       // Dynamic double progression: clear the flag once they've actually taken
@@ -2055,13 +2055,17 @@
           state.levelUpFlags[currentName] = { atWeight: stepperWeight, suggestedWeight };
         }
       }
-      saveData();
 
-      // A goal just getting crossed (wasn't reached before this set, is now)
-      // is rarer and bigger than an ordinary top-of-range set, so it gets its
-      // own, much bigger celebration instead of the regular power-up.
-      const gpAfter = getGoalProgress(ex, currentName);
-      const goalJustReached = !!gpAfter && gpAfter.remaining <= 0 && (!gpBefore || gpBefore.remaining > 0);
+      // Celebrate the first time each day the goal shows as met — simpler and
+      // more reliable than comparing against history (a goal set after you're
+      // already at/near that weight, or multiple sets logged the same day,
+      // made a "was it reached before this exact click" check unreliable).
+      const gp = getGoalProgress(ex, currentName);
+      const today = todayISO();
+      const goalJustReached = !!gp && gp.remaining <= 0 && state.goalCelebrations[currentName] !== today;
+      if(goalJustReached) state.goalCelebrations[currentName] = today;
+
+      saveData();
 
       showToast(`Set ${targetIdx+1} ${isEditingLogged ? "updated" : "logged"}`);
       editingSetIndex = null;
@@ -2069,7 +2073,7 @@
       renderSessionView();
       const boardCard = document.getElementById("boardCard");
       if(boardCard) boardCard.scrollIntoView({ behavior: "smooth", block: "center" });
-      if(goalJustReached) triggerGoalCrushed(currentName, gpAfter.goal);
+      if(goalJustReached) triggerGoalCrushed(currentName, gp.goal);
       else if(leveledUp) triggerPowerUp();
     });
 

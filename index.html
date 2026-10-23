@@ -326,6 +326,46 @@
   }
   .powerup-overlay.show .powerup-badge{ transform: scale(1) rotate(0deg); }
 
+  .goal-crushed-overlay{
+    position: fixed; inset:0; z-index: 250; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; opacity:0; transition: opacity 0.3s ease;
+    background: radial-gradient(circle at center, rgba(255,215,0,0.14), rgba(10,6,18,0.6));
+  }
+  .goal-crushed-overlay.show{ opacity:1; }
+  .gc-content{
+    position:relative; z-index:2; text-align:center; padding: 0 24px;
+    transform: scale(0.5); transition: transform 0.4s cubic-bezier(.34,1.6,.64,1);
+  }
+  .goal-crushed-overlay.show .gc-content{ transform: scale(1); }
+  .gc-flex{
+    font-size: 84px; line-height:1; margin-bottom:14px;
+    animation: gcFlexPump 0.6s ease-in-out infinite;
+    filter: drop-shadow(0 0 22px rgba(255,215,0,0.6));
+  }
+  @keyframes gcFlexPump{
+    0%,100%{ transform: scale(1) rotate(-4deg); }
+    50%{ transform: scale(1.15) rotate(4deg); }
+  }
+  .gc-title{
+    font-family: var(--font-pixel); font-size: 22px; font-weight:400; letter-spacing:0.03em;
+    background: linear-gradient(135deg, #ffd700, #ff7a1a);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #ffd700;
+    margin-bottom: 12px; line-height:1.6;
+  }
+  .gc-sub{
+    font-family: var(--font-mono); font-size: 13.5px; color: #fff; font-weight:700;
+    background: rgba(0,0,0,0.45); padding: 9px 18px; border-radius: 999px; display:inline-block;
+  }
+  .gc-confetti{ position:absolute; inset:0; overflow:hidden; z-index:1; }
+  .gc-piece{
+    position:absolute; top:-20px; width:9px; height:9px; opacity:0;
+    animation: gcFall 1.8s ease-in forwards;
+  }
+  @keyframes gcFall{
+    0%{ opacity:1; transform: translate(0,0) rotate(0deg); }
+    100%{ opacity:0.9; transform: translate(var(--drift), 100vh) rotate(540deg); }
+  }
+
   .set-table{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); overflow:hidden; margin-bottom:18px; }
   .set-table-head{ display:grid; grid-template-columns: 40px 1fr 1fr 48px; gap:8px; padding:11px 14px; background: var(--surface-2); }
   .set-table-head span{ font-family: var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color: var(--muted); font-weight:700; }
@@ -1391,6 +1431,73 @@
     }, 1000);
   }
 
+  // Bigger fanfare for the rarer moment — reaching a goal weight, not just a
+  // single top-of-range set: a fast ascending run into one big sustained
+  // chord, instead of the short 4-note power-up jingle.
+  function playGoalCrushedSound(){
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const run = [392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99]; // G4 up to G5
+    run.forEach((freq, i)=>{
+      const delay = i * 0.055;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t0 + delay);
+      gain.gain.exponentialRampToValueAtTime(0.14, t0 + delay + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + delay + 0.1);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t0 + delay); osc.stop(t0 + delay + 0.12);
+    });
+    const chordStart = t0 + run.length * 0.055 + 0.03;
+    [523.25, 659.25, 783.99, 1046.5].forEach(freq=>{ // C5 E5 G5 C6, rung out long
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, chordStart);
+      gain.gain.exponentialRampToValueAtTime(0.16, chordStart + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, chordStart + 0.8);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(chordStart); osc.stop(chordStart + 0.85);
+    });
+  }
+  function triggerGoalCrushed(exerciseName, goalWeight){
+    ensureAudio().then(()=> playGoalCrushedSound());
+    if(navigator.vibrate) navigator.vibrate([80,40,80,40,80,40,160]);
+
+    const overlay = document.createElement("div");
+    overlay.className = "goal-crushed-overlay";
+    overlay.innerHTML = `
+      <div class="gc-confetti" id="gcConfetti"></div>
+      <div class="gc-content">
+        <div class="gc-flex">💪</div>
+        <div class="gc-title">BEAST MODE</div>
+        <div class="gc-sub">${exerciseName} — ${goalWeight} lbs CRUSHED</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const confettiColors = ["#ff7a1a", "#a855f7", "#7ee83a", "#ffd700"];
+    const confettiEl = overlay.querySelector("#gcConfetti");
+    for(let i=0;i<24;i++){
+      const piece = document.createElement("div");
+      piece.className = "gc-piece";
+      piece.style.left = `${Math.random()*100}%`;
+      piece.style.background = confettiColors[i % confettiColors.length];
+      piece.style.animationDelay = `${(Math.random()*0.3).toFixed(2)}s`;
+      piece.style.setProperty("--drift", `${Math.round((Math.random()-0.5)*160)}px`);
+      confettiEl.appendChild(piece);
+    }
+
+    requestAnimationFrame(()=> overlay.classList.add("show"));
+    setTimeout(()=>{
+      overlay.classList.remove("show");
+      setTimeout(()=> overlay.remove(), 400);
+    }, 2200);
+  }
+
   function startRest(exerciseName, seconds){
     ensureAudio();
     if("Notification" in window && Notification.permission === "default"){
@@ -1929,6 +2036,7 @@
 
     const completeBtn = document.getElementById("completeSetBtn");
     if(completeBtn) completeBtn.addEventListener("click", ()=>{
+      const gpBefore = getGoalProgress(ex, currentName);
       commitSet(currentName, targetIdx, stepperWeight, stepperReps);
 
       // Dynamic double progression: clear the flag once they've actually taken
@@ -1949,13 +2057,20 @@
       }
       saveData();
 
+      // A goal just getting crossed (wasn't reached before this set, is now)
+      // is rarer and bigger than an ordinary top-of-range set, so it gets its
+      // own, much bigger celebration instead of the regular power-up.
+      const gpAfter = getGoalProgress(ex, currentName);
+      const goalJustReached = !!gpAfter && gpAfter.remaining <= 0 && (!gpBefore || gpBefore.remaining > 0);
+
       showToast(`Set ${targetIdx+1} ${isEditingLogged ? "updated" : "logged"}`);
       editingSetIndex = null;
       currentSetContext = null;
       renderSessionView();
       const boardCard = document.getElementById("boardCard");
       if(boardCard) boardCard.scrollIntoView({ behavior: "smooth", block: "center" });
-      if(leveledUp) triggerPowerUp();
+      if(goalJustReached) triggerGoalCrushed(currentName, gpAfter.goal);
+      else if(leveledUp) triggerPowerUp();
     });
 
     const cancelEditBtn = document.getElementById("cancelEditBtn");

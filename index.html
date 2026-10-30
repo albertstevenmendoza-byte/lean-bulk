@@ -270,6 +270,8 @@
   .modal-title{ font-weight:800; font-size:17px; }
   .settings-field{ margin-bottom:14px; }
   .settings-field label{ display:block; font-size:12.5px; font-weight:600; color: var(--text-dim); margin-bottom:7px; }
+  .settings-divider{ height:1px; background: var(--border); margin:20px 0; }
+  .settings-hint{ font-size:12px; color: var(--muted); margin: 8px 0 10px; line-height:1.4; }
 
   /* ---------- Toast ---------- */
   .toast{
@@ -543,6 +545,30 @@
       <input type="number" inputmode="numeric" id="setFatTarget" class="field-input tabular">
     </div>
     <button class="btn-primary" id="settingsSaveBtn">Save</button>
+
+    <div class="settings-divider"></div>
+    <div class="settings-field">
+      <label>Import backup</label>
+      <p class="settings-hint">Restore a JSON backup — works with this app's own export or an old-format backup (lift logs, goals, weight, meals). Existing data isn't overwritten, only added to.</p>
+      <input type="file" id="importFileInput" accept="application/json" hidden>
+      <button class="btn-secondary" id="importTriggerBtn" style="width:100%;">Choose backup file…</button>
+      <div class="settings-hint" id="importStatus"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="swapModal" hidden>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Swap exercise</span>
+      <button class="icon-btn" id="swapClose" aria-label="Close">✕</button>
+    </div>
+    <div class="settings-field">
+      <label id="swapDefaultLabel"></label>
+      <input type="text" id="swapInput" class="field-input" placeholder="Replacement exercise name">
+    </div>
+    <button class="btn-primary" id="swapSaveBtn">Save</button>
+    <button class="btn-secondary" id="swapResetBtn" style="width:100%; margin-top:10px;">Reset to default</button>
   </div>
 </div>
 
@@ -613,48 +639,48 @@
   // upper chest, traps) without overlapping the power days' heavy singles.
   const PROGRAM = [
     { id: "upper-power", name: "Upper Power", exercises: [
-      { name: "Incline Barbell Press", sets: 4, repRange: [3,5] },
-      { name: "Supinated Barbell Row", sets: 4, repRange: [3,5] },
-      { name: "Machine Shoulder Press", sets: 3, repRange: [5,6] },
-      { name: "Neutral-Grip Pull-Up", sets: 3, repRange: [5,6] },
-      { name: "Dip / Close-Grip Bench", sets: 3, repRange: [6,8] },
-      { name: "Preacher Curl", sets: 2, repRange: [6,8] },
-      { name: "Lateral Raise", sets: 4, repRange: [12,15] },
-      { name: "Shrugs", sets: 3, repRange: [10,15] }
+      { id: "up-bench", name: "Incline Barbell Press", sets: 4, repRange: [3,5] },
+      { id: "up-row", name: "Supinated Barbell Row", sets: 4, repRange: [3,5] },
+      { id: "up-ohp", name: "Machine Shoulder Press", sets: 3, repRange: [5,6] },
+      { id: "up-pullup", name: "Neutral-Grip Pull-Up", sets: 3, repRange: [5,6] },
+      { id: "up-tricep", name: "Dip", sets: 3, repRange: [6,8] },
+      { id: "up-curl", name: "Preacher Curl", sets: 2, repRange: [6,8] },
+      { id: "up-lateral", name: "Lateral Raise", sets: 4, repRange: [12,15] },
+      { id: "up-shrug", name: "Shrugs", sets: 3, repRange: [10,15] }
     ]},
     { id: "lower-power", name: "Lower Power", exercises: [
-      { name: "Leg Press", sets: 4, repRange: [3,5] },
-      { name: "Conventional Deadlift", sets: 3, repRange: [4,6] },
-      { name: "Hack Squat Machine", sets: 3, repRange: [6,8] },
-      { name: "Standing Calf Raise", sets: 4, repRange: [6,8] },
-      { name: "Cable Crunch", sets: 4, repRange: [12,15] }
+      { id: "lp-squat", name: "Leg Press", sets: 4, repRange: [3,5] },
+      { id: "lp-rdl", name: "Conventional Deadlift", sets: 3, repRange: [4,6] },
+      { id: "lp-legpress", name: "Belt Squat", sets: 3, repRange: [6,8] },
+      { id: "lp-calf", name: "Leg Press Calf Raise", sets: 4, repRange: [6,8] },
+      { id: "lp-crunch", name: "Cable Crunch", sets: 4, repRange: [12,15] }
     ]},
     { id: "push-hyper", name: "Push Hypertrophy", exercises: [
-      { name: "Incline DB Press", sets: 4, repRange: [8,12] },
-      { name: "Low-to-High Cable Fly", sets: 3, repRange: [10,15] },
-      { name: "Seated DB Shoulder Press", sets: 3, repRange: [8,12] },
-      { name: "Cable Lateral Raise", sets: 5, repRange: [12,15] },
-      { name: "Triceps Rope Pushdown", sets: 3, repRange: [10,15] },
-      { name: "Overhead Triceps Extension", sets: 2, repRange: [10,15] },
-      { name: "Ab Wheel Rollout", sets: 3, repRange: [8,12] }
+      { id: "ph-inclinedb", name: "Incline DB Press", sets: 4, repRange: [8,12] },
+      { id: "ph-chestpress", name: "Flat Bench DB Press", sets: 3, repRange: [10,15] },
+      { id: "ph-shoulderpress", name: "Seated DB Shoulder Press", sets: 3, repRange: [8,12] },
+      { id: "ph-lateral", name: "Cable Lateral Raise", sets: 5, repRange: [12,15] },
+      { id: "ph-pushdown", name: "Reverse-Grip Pushdown", sets: 3, repRange: [10,15] },
+      { id: "ph-ohtricep", name: "DB Overhead Extension", sets: 2, repRange: [10,15] },
+      { id: "ph-abs", name: "Hanging Leg Raise", sets: 3, repRange: [8,12] }
     ]},
     { id: "pull-hyper", name: "Pull Hypertrophy", exercises: [
-      { name: "Pull-Up", sets: 4, repRange: [8,12] },
-      { name: "Lat Pulldown", sets: 4, repRange: [10,12] },
-      { name: "Chest-Supported Row", sets: 3, repRange: [10,12] },
-      { name: "Shrugs", sets: 3, repRange: [12,15] },
-      { name: "DB / Cable Curl", sets: 3, repRange: [10,12] },
-      { name: "Rope Hammer Curl", sets: 2, repRange: [10,12] },
-      { name: "Rear Delt Fly", sets: 2, repRange: [12,15] }
+      { id: "pl-lat", name: "Pull-Up", sets: 4, repRange: [8,12] },
+      { id: "pl-pulldown", name: "Chin-Up", sets: 4, repRange: [10,12] },
+      { id: "pl-row", name: "Chest-Supported Row", sets: 3, repRange: [10,12] },
+      { id: "pl-facepull", name: "Shrugs", sets: 3, repRange: [12,15] },
+      { id: "pl-curl", name: "DB / Cable Curl", sets: 3, repRange: [10,12] },
+      { id: "pl-hammer", name: "Rope Hammer Curl", sets: 2, repRange: [10,12] },
+      { id: "pl-reardelt", name: "Rear Delt Fly", sets: 2, repRange: [12,15] }
     ]},
     { id: "legs-hyper", name: "Legs Hypertrophy", exercises: [
-      { name: "Goblet Squat", sets: 3, repRange: [8,10] },
-      { name: "Leg Curl", sets: 3, repRange: [10,12] },
-      { name: "Step-Up", sets: 3, repRange: [10,12] },
-      { name: "Leg Extension", sets: 2, repRange: [12,15] },
-      { name: "Seated Calf Raise", sets: 3, repRange: [10,15] },
-      { name: "DB Lateral Raise", sets: 4, repRange: [12,15] },
-      { name: "Hanging Leg Raise", sets: 4, repRange: [10,15] }
+      { id: "lg-frontsquat", name: "Back Squat", sets: 3, repRange: [8,10] },
+      { id: "lg-legcurl", name: "Leg Curl", sets: 3, repRange: [10,12] },
+      { id: "lg-lunge", name: "Step-Up", sets: 3, repRange: [10,12] },
+      { id: "lg-legext", name: "Leg Extension", sets: 2, repRange: [12,15] },
+      { id: "lg-calf", name: "Seated Calf Raise", sets: 3, repRange: [10,15] },
+      { id: "lg-lateral", name: "DB Lateral Raise", sets: 4, repRange: [12,15] },
+      { id: "lg-hangingleg", name: "Hanging Leg Raise", sets: 4, repRange: [10,15] }
     ]}
   ];
 
@@ -678,6 +704,7 @@
       meals: [],       // {id, date, name, kcal, protein, carbs, fat}
       favorites: [],   // {id, name, kcal, protein, carbs, fat}
       extraExercises: {}, // { [dayId]: [exerciseName, ...] } — custom adds on top of the program
+      overrides: {},    // { [slotId]: swappedExerciseName } — replaces a program slot's default exercise
       workouts: {},     // { [exerciseName]: [{date, sets:[{weight,reps}]}] }
       goals: {},        // { [exerciseName]: targetWeight }
       goalCelebrations: {} // { [exerciseName]: lastCelebratedDate } — once-per-day "goal reached" toast
@@ -1082,8 +1109,11 @@
   // plus any custom extras the user added, which log freely with no target.
   function getDayExercises(dayId){
     const day = getDay(dayId);
-    const extras = (state.extraExercises[dayId] || []).map(name=> ({ name, sets:null, repRange:null }));
-    return [...day.exercises, ...extras];
+    const programExercises = day.exercises.map(ex=> ({
+      slotId: ex.id, name: state.overrides[ex.id] || ex.name, defaultName: ex.name, sets: ex.sets, repRange: ex.repRange
+    }));
+    const extras = (state.extraExercises[dayId] || []).map(name=> ({ slotId:null, name, defaultName:null, sets:null, repRange:null }));
+    return [...programExercises, ...extras];
   }
   let activeDayId = null;
   let currentExercise = null;
@@ -1124,8 +1154,18 @@
       const target = ex.repRange ? `${ex.sets}×${ex.repRange[0]}-${ex.repRange[1]}` : null;
       const status = today ? `${today.sets.length} set${today.sets.length===1?"":"s"} today` : (last ? `last: ${last.sets.length} set${last.sets.length===1?"":"s"}` : "no data");
       const meta = target ? `${target} · ${status}` : status;
-      row.innerHTML = `<span class="exercise-row-name">${ex.name}</span><span class="exercise-row-meta tabular">${meta}</span><span class="chevron">›</span>`;
-      row.addEventListener("click", ()=> openGymMode(ex.name, ex.repRange));
+      const swapBtn = ex.slotId ? `<button class="icon-btn swap-btn" aria-label="Swap exercise">⇄</button>` : "";
+      row.innerHTML = `<span class="exercise-row-name">${ex.name}</span><span class="exercise-row-meta tabular">${meta}</span>${swapBtn}<span class="chevron">›</span>`;
+      row.addEventListener("click", (e)=>{
+        if(e.target.closest(".swap-btn")) return;
+        openGymMode(ex.name, ex.repRange);
+      });
+      if(ex.slotId){
+        row.querySelector(".swap-btn").addEventListener("click", (e)=>{
+          e.stopPropagation();
+          openSwapModal(ex.slotId, ex.defaultName, ex.name);
+        });
+      }
       wrap.appendChild(row);
     });
   }
@@ -1490,6 +1530,117 @@
   window.addEventListener("resize", ()=>{
     if(document.getElementById("view-dashboard").classList.contains("active")) renderWeightChart("weightChart","weightTrendStat");
     if(document.getElementById("view-weight").classList.contains("active")) renderWeightChart("weightChart2","weightTrendStat2");
+  });
+
+  // ---------- Exercise swap ----------
+  let swapSlotId = null;
+  function openSwapModal(slotId, defaultName, currentName){
+    swapSlotId = slotId;
+    document.getElementById("swapDefaultLabel").textContent = `Default: ${defaultName}`;
+    document.getElementById("swapInput").value = currentName === defaultName ? "" : currentName;
+    document.getElementById("swapModal").hidden = false;
+  }
+  document.getElementById("swapClose").addEventListener("click", ()=>{
+    document.getElementById("swapModal").hidden = true;
+  });
+  document.getElementById("swapModal").addEventListener("click", e=>{
+    if(e.target.id === "swapModal") document.getElementById("swapModal").hidden = true;
+  });
+  document.getElementById("swapSaveBtn").addEventListener("click", ()=>{
+    const val = document.getElementById("swapInput").value.trim();
+    if(val) state.overrides[swapSlotId] = val;
+    else delete state.overrides[swapSlotId];
+    saveState();
+    document.getElementById("swapModal").hidden = true;
+    renderDayDetail();
+    showToast(val ? "Exercise swapped" : "Reset to default");
+  });
+  document.getElementById("swapResetBtn").addEventListener("click", ()=>{
+    delete state.overrides[swapSlotId];
+    saveState();
+    document.getElementById("swapModal").hidden = true;
+    renderDayDetail();
+    showToast("Reset to default");
+  });
+
+  // ---------- Import backup ----------
+  // Accepts either this app's own state shape, or the pre-revamp app's shape
+  // (logs/metrics/overrides keyed the same way as PROGRAM's slot ids), and
+  // merges non-destructively: existing dates/ids are never overwritten.
+  function mergeImportedState(raw){
+    let added = { sets:0, weight:0, meals:0, goals:0 };
+    const isOldFormat = !!raw.logs || !!raw.metrics;
+    const importedWorkouts = isOldFormat ? (raw.logs || {}) : (raw.workouts || {});
+    const importedWeight = isOldFormat ? (raw.metrics && raw.metrics.weight || []) : (raw.weight || []);
+    const importedMealsRaw = isOldFormat ? (raw.metrics && raw.metrics.meals || []) : (raw.meals || []);
+    const importedGoals = raw.goals || {};
+    const importedGoalCelebrations = raw.goalCelebrations || {};
+    const importedOverrides = raw.overrides || {};
+
+    Object.keys(importedWorkouts).forEach(name=>{
+      if(!state.workouts[name]) state.workouts[name] = [];
+      const existingDates = new Set(state.workouts[name].map(e=> e.date));
+      importedWorkouts[name].forEach(entry=>{
+        if(!existingDates.has(entry.date)){
+          state.workouts[name].push({ date: entry.date, sets: entry.sets });
+          added.sets += entry.sets.length;
+        }
+      });
+    });
+
+    const existingWeightDates = new Set(state.weight.map(w=> w.date));
+    importedWeight.forEach(w=>{
+      if(!existingWeightDates.has(w.date)){ state.weight.push({ date: w.date, lbs: w.lbs }); added.weight++; }
+    });
+
+    const existingMealIds = new Set(state.meals.map(m=> m.id));
+    importedMealsRaw.forEach(m=>{
+      const id = m.id || generateId();
+      if(existingMealIds.has(id)) return;
+      if(isOldFormat){
+        state.meals.push({ id, date: m.date, name: m.label || "Imported meal", kcal: m.kcal || 0, protein: 0, carbs: 0, fat: 0 });
+      } else {
+        state.meals.push({ id, date: m.date, name: m.name, kcal: m.kcal || 0, protein: m.protein || 0, carbs: m.carbs || 0, fat: m.fat || 0 });
+      }
+      added.meals++;
+    });
+
+    Object.keys(importedGoals).forEach(name=>{
+      if(state.goals[name] === undefined){ state.goals[name] = importedGoals[name]; added.goals++; }
+    });
+    Object.keys(importedGoalCelebrations).forEach(name=>{
+      if(state.goalCelebrations[name] === undefined) state.goalCelebrations[name] = importedGoalCelebrations[name];
+    });
+    Object.keys(importedOverrides).forEach(slotId=>{
+      if(state.overrides[slotId] === undefined) state.overrides[slotId] = importedOverrides[slotId];
+    });
+
+    return added;
+  }
+  document.getElementById("importTriggerBtn").addEventListener("click", ()=>{
+    document.getElementById("importFileInput").click();
+  });
+  document.getElementById("importFileInput").addEventListener("change", (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById("importStatus");
+    statusEl.textContent = "Reading file…";
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const raw = JSON.parse(reader.result);
+        const added = mergeImportedState(raw);
+        saveState();
+        statusEl.textContent = `Imported ${added.sets} sets, ${added.weight} weight entries, ${added.meals} meals, ${added.goals} goals.`;
+        showToast("Backup imported");
+        renderDashboard();
+        renderActiveLiftsLevel();
+      }catch(err){
+        statusEl.textContent = "Couldn't read that file — make sure it's a valid backup JSON.";
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   });
 
   // ---------- Init ----------

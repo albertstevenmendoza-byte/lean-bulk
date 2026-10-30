@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
 <title>Lean Bulk</title>
-<meta name="theme-color" content="#0b0c0e">
+<meta name="theme-color" content="#0a0e1c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,18 +13,18 @@
 <style>
   :root{
     color-scheme: dark;
-    --bg: #0b0c0e;
-    --surface: #16171b;
-    --surface-2: #1f2126;
-    --border: #2a2d33;
-    --text: #f3f2ef;
-    --text-dim: #9b9da3;
-    --muted: #6b6d73;
-    --accent: #ff8a3d;
-    --accent-dim: #c76a2c;
-    --protein: #4fd1c5;
-    --carb: #ffb84d;
-    --fat: #c084fc;
+    --bg: #0a0e1c;
+    --surface: #141a2c;
+    --surface-2: #1c2440;
+    --border: #2b3454;
+    --text: #f0ece8;
+    --text-dim: #9b98ab;
+    --muted: #6d6a82;
+    --accent: #a8323f;
+    --accent-dim: #7e2530;
+    --protein: #e8b4b8;
+    --carb: #e8a855;
+    --fat: #9d7fc4;
     --danger: #ff6b6b;
     --good: #3ddc84;
     --radius-sm: 10px;
@@ -98,7 +98,7 @@
     background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-md);
     padding:16px 12px; font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px;
   }
-  .quick-action-btn.primary{ background: var(--accent); color:#1a0e04; border-color: var(--accent); }
+  .quick-action-btn.primary{ background: var(--accent); color: var(--text); border-color: var(--accent); }
   .quick-action-btn:active{ background: var(--surface-2); }
   .quick-action-btn.primary:active{ background: var(--accent-dim); }
 
@@ -139,7 +139,7 @@
   .field-input::placeholder{ color: var(--muted); }
   .field-input:focus{ border-color: var(--accent); outline:none; }
   .btn-primary{
-    width:100%; background: var(--accent); color:#1a0e04; font-weight:700; border:none;
+    width:100%; background: var(--accent); color: var(--text); font-weight:700; border:none;
     border-radius: var(--radius-md); padding:14px; font-size:14.5px;
   }
   .btn-primary:active{ background: var(--accent-dim); }
@@ -843,8 +843,8 @@
 
     if(avg.length >= 2){
       const grad = ctx.createLinearGradient(0,0,0,h);
-      grad.addColorStop(0, "rgba(255,138,61,0.22)");
-      grad.addColorStop(1, "rgba(255,138,61,0)");
+      grad.addColorStop(0, "rgba(168,50,63,0.28)");
+      grad.addColorStop(1, "rgba(168,50,63,0)");
       ctx.beginPath();
       smoothPath(avg, avgX);
       const last = avg.length-1;
@@ -863,7 +863,7 @@
     });
 
     if(avg.length >= 2){
-      ctx.strokeStyle = "#ff8a3d";
+      ctx.strokeStyle = "#c2505e";
       ctx.lineWidth = 2.5;
       ctx.lineJoin = "round"; ctx.lineCap = "round";
       ctx.beginPath();
@@ -872,7 +872,7 @@
       const lastIdx = avg.length-1;
       ctx.beginPath();
       ctx.arc(avgX(lastIdx), yFor(avg[lastIdx].lbs), 4, 0, Math.PI*2);
-      ctx.fillStyle = "#ff8a3d";
+      ctx.fillStyle = "#c2505e";
       ctx.fill();
     }
   }

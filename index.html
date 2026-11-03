@@ -105,7 +105,8 @@
 
   /* ---------- Cards ---------- */
   .card{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); padding:18px; margin-bottom:16px; }
-  .card-header{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-weight:700; font-size:15px; margin-bottom:14px; }
+  .card-header{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; row-gap:8px; flex-wrap:wrap; font-weight:700; font-size:15px; margin-bottom:14px; }
+  .card-header-actions{ display:flex; gap:8px; flex:0 0 auto; }
   .card-header-stat{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-dim); font-weight:500; }
   .empty-hint{ font-size:13.5px; color: var(--muted); padding: 10px 2px; }
   .history-day-card{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); padding:16px 18px; margin-bottom:12px; }
@@ -301,25 +302,27 @@
     main, .topbar-inner, .bottom-nav-inner{ max-width: 900px; }
     .modal-sheet{ max-width: 560px; }
 
-    /* Dashboard: ring/macros/actions on the left, trend + today's log on the right */
-    #view-dashboard{ display:flex; align-items:flex-start; gap:28px; }
+    /* Dashboard: ring/macros/actions on the left, trend + today's log on the right.
+       Scoped to .active — an ID selector alone outranks .view's class-based
+       display:none and would force the view visible even when inactive. */
+    #view-dashboard.active{ display:flex; align-items:flex-start; gap:28px; }
     .dash-col-left{ flex:0 0 340px; }
     .dash-col-right{ flex:1; min-width:0; }
 
     /* Lifts: a real master-detail split — day list always visible on the
        left, whichever detail pane is active fills the right, matching the
        side-by-side multitasking this device is actually built for. */
-    #view-lifts{ display:flex; align-items:flex-start; gap:28px; }
-    #dayListWrap{ flex:0 0 300px; display:block !important; }
-    #dayDetailWrap, #gymModeWrap, #historyWrap{ flex:1; min-width:0; }
-    #view-lifts:not(:has(#dayDetailWrap:not([hidden]), #gymModeWrap:not([hidden]), #historyWrap:not([hidden]))) .lifts-placeholder{
+    #view-lifts.active{ display:flex; align-items:flex-start; gap:28px; }
+    #view-lifts.active #dayListWrap{ flex:0 0 300px; display:block !important; }
+    #view-lifts.active #dayDetailWrap, #view-lifts.active #gymModeWrap, #view-lifts.active #historyWrap{ flex:1; min-width:0; }
+    #view-lifts.active:not(:has(#dayDetailWrap:not([hidden]), #gymModeWrap:not([hidden]), #historyWrap:not([hidden]))) .lifts-placeholder{
       display:flex; flex:1; min-width:0; min-height:360px; align-items:center; justify-content:center;
       color: var(--muted); font-size:14.5px; text-align:center; padding:20px;
     }
 
     /* Food and Weight have no second column to fill, so keep them at a
        comfortable reading width instead of stretching to the full 900px. */
-    #view-food, #view-weight{ max-width: 560px; margin: 0 auto; }
+    #view-food.active, #view-weight.active{ max-width: 560px; margin: 0 auto; }
   }
 </style>
 </head>
@@ -465,7 +468,13 @@
   <section id="view-lifts" class="view">
     <div id="dayListWrap">
       <div class="card">
-        <div class="card-header"><span>Training days</span><button class="btn-secondary small" id="historyToggleBtn">History</button></div>
+        <div class="card-header">
+          <span>Training days</span>
+          <div class="card-header-actions">
+            <button class="btn-secondary small" id="mixDaysToggleBtn">Mix days</button>
+            <button class="btn-secondary small" id="historyToggleBtn">History</button>
+          </div>
+        </div>
         <div id="dayList"></div>
       </div>
     </div>
@@ -485,7 +494,7 @@
       </div>
       <div class="card">
         <div id="dayExerciseList"></div>
-        <div class="add-exercise-row">
+        <div class="add-exercise-row" id="addExerciseRow">
           <input type="text" id="newExerciseInput" class="field-input" placeholder="Add an exercise to this day…">
           <button class="btn-secondary" id="addExerciseBtn">Add</button>
         </div>
@@ -632,6 +641,24 @@
       <button class="btn-secondary" id="importTriggerBtn" style="width:100%;">Choose backup file…</button>
       <div class="settings-hint" id="importStatus"></div>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mixDaysModal" hidden>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Mix two days</span>
+      <button class="icon-btn" id="mixDaysClose" aria-label="Close">✕</button>
+    </div>
+    <div class="settings-field">
+      <label>First day</label>
+      <select id="mixDaySelectA" class="field-input"></select>
+    </div>
+    <div class="settings-field">
+      <label>Second day</label>
+      <select id="mixDaySelectB" class="field-input"></select>
+    </div>
+    <button class="btn-primary" id="mixDaysConfirmBtn">Combine</button>
   </div>
 </div>
 
@@ -1215,6 +1242,19 @@
   let activeDayId = null;
   let currentExercise = null;
   let currentExerciseTarget = null;
+  let mixedDayExercises = null; // set when viewing an ad-hoc combination of two days instead of a single program day
+  let mixedDayLabel = "";
+
+  function openMixedDay(idA, idB){
+    const dayA = getDay(idA), dayB = getDay(idB);
+    mixedDayLabel = `${dayA.name} + ${dayB.name}`;
+    mixedDayExercises = [...getDayExercises(idA), ...getDayExercises(idB)];
+    activeDayId = null;
+    document.getElementById("dayListWrap").hidden = true;
+    document.getElementById("dayDetailWrap").hidden = false;
+    document.getElementById("dayDetailName").textContent = mixedDayLabel;
+    renderDayDetail();
+  }
 
   function buildSessionHistory(){
     const byDate = {};
@@ -1287,6 +1327,7 @@
   }
   function closeDayDetail(){
     activeDayId = null;
+    mixedDayExercises = null;
     document.getElementById("dayListWrap").hidden = false;
     document.getElementById("dayDetailWrap").hidden = true;
     renderDayList();
@@ -1294,7 +1335,9 @@
   function renderDayDetail(){
     const wrap = document.getElementById("dayExerciseList");
     wrap.innerHTML = "";
-    getDayExercises(activeDayId).forEach(ex=>{
+    document.getElementById("addExerciseRow").hidden = !!mixedDayExercises;
+    const exercises = mixedDayExercises || getDayExercises(activeDayId);
+    exercises.forEach(ex=>{
       const last = getLastLoggedSession(ex.name);
       const today = getTodaySession(ex.name);
       const row = document.createElement("div");
@@ -1583,7 +1626,7 @@
   }
   function renderActiveLiftsLevel(){
     if(currentExercise) renderGymMode();
-    else if(activeDayId) renderDayDetail();
+    else if(activeDayId || mixedDayExercises) renderDayDetail();
     else if(!document.getElementById("historyWrap").hidden) renderHistory();
     else renderDayList();
   }
@@ -1687,6 +1730,33 @@
   });
   document.getElementById("dayBackBtn").addEventListener("click", closeDayDetail);
   document.getElementById("historyToggleBtn").addEventListener("click", openHistory);
+
+  function populateMixDaySelects(){
+    const options = PROGRAM.map(d=> `<option value="${d.id}">${d.name}</option>`).join("");
+    const selA = document.getElementById("mixDaySelectA");
+    const selB = document.getElementById("mixDaySelectB");
+    selA.innerHTML = options;
+    selB.innerHTML = options;
+    selA.value = PROGRAM[0].id;
+    selB.value = PROGRAM[1].id;
+  }
+  document.getElementById("mixDaysToggleBtn").addEventListener("click", ()=>{
+    populateMixDaySelects();
+    document.getElementById("mixDaysModal").hidden = false;
+  });
+  document.getElementById("mixDaysClose").addEventListener("click", ()=>{
+    document.getElementById("mixDaysModal").hidden = true;
+  });
+  document.getElementById("mixDaysModal").addEventListener("click", e=>{
+    if(e.target.id === "mixDaysModal") document.getElementById("mixDaysModal").hidden = true;
+  });
+  document.getElementById("mixDaysConfirmBtn").addEventListener("click", ()=>{
+    const idA = document.getElementById("mixDaySelectA").value;
+    const idB = document.getElementById("mixDaySelectB").value;
+    if(idA === idB){ showToast("Pick two different days"); return; }
+    document.getElementById("mixDaysModal").hidden = true;
+    openMixedDay(idA, idB);
+  });
   document.getElementById("historyBackBtn").addEventListener("click", closeHistory);
   document.getElementById("gymBackBtn").addEventListener("click", closeGymMode);
   document.getElementById("addSetBtn").addEventListener("click", addSet);

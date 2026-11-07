@@ -353,6 +353,31 @@
        comfortable reading width instead of stretching to the full 900px. */
     #view-food.active, #view-weight.active{ max-width: 560px; margin: 0 auto; }
   }
+
+  /* ---------- StandBy-style glanceable view ---------- */
+  /* Landscape + short height = phone propped on its side (or the Duo's
+     outer screen rotated). The Duo unfolded in landscape is ~626pt tall —
+     well above this 500px cutoff — so it correctly keeps the normal
+     split-view instead of being swallowed by this. */
+  .standby-view{ display:none; }
+  @media (orientation: landscape) and (max-height: 500px){
+    .topbar, main, .bottom-nav{ display:none; }
+    .standby-view{
+      display:flex; position:fixed; inset:0; background: var(--bg); z-index:500;
+      align-items:center; justify-content:center; gap:60px;
+      padding: 16px calc(env(safe-area-inset-right, 0px) + 20px) 16px calc(env(safe-area-inset-left, 0px) + 20px);
+    }
+    .standby-col{ display:flex; flex-direction:column; align-items:center; text-align:center; }
+    .standby-cal-value{ font-family: var(--font-mono); font-size: clamp(40px, 11vh, 72px); font-weight:800; line-height:1; }
+    .standby-cal-label{ font-family: var(--font-mono); font-size:13px; color: var(--text-dim); margin-top:6px; }
+    .standby-macros{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-dim); margin-top:10px; }
+    .standby-timer-col{ border-left:1px solid var(--border); padding-left:60px; }
+    .standby-timer-label{ font-size:11px; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+    .standby-timer-value{
+      font-family: var(--font-mono); font-size: clamp(40px, 11vh, 72px); font-weight:800; color: var(--accent); line-height:1;
+      filter: drop-shadow(0 0 10px rgba(168,50,63,0.5));
+    }
+  }
 </style>
 </head>
 <body>
@@ -607,6 +632,18 @@
     <button class="nav-btn" data-view="weight"><span class="nav-icon">⚖</span><span>Weight</span></button>
   </div>
 </nav>
+
+<div class="standby-view" id="standbyView">
+  <div class="standby-col">
+    <div class="standby-cal-value tabular" id="standbyCalValue">0</div>
+    <div class="standby-cal-label">of <span id="standbyCalTarget" class="tabular">2,450</span> kcal</div>
+    <div class="standby-macros tabular" id="standbyMacros"></div>
+  </div>
+  <div class="standby-col standby-timer-col" id="standbyTimerCol" hidden>
+    <div class="standby-timer-label">Rest</div>
+    <div class="standby-timer-value tabular" id="standbyTimerValue">0:00</div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -966,6 +1003,27 @@
 
     renderWeightChart("weightChart", "weightTrendStat");
     renderDashMealList(meals);
+    renderStandby();
+  }
+  // Keeps the StandBy-style glanceable view (shown via CSS media query when
+  // the phone is landscape and propped up) current. Called from both the
+  // dashboard render and the rest-timer tick so it's live whichever one
+  // last touched the data, without a dedicated always-on interval.
+  function renderStandby(){
+    const totals = dailyTotals(todaysMeals());
+    document.getElementById("standbyCalValue").textContent = Math.round(totals.kcal).toLocaleString();
+    document.getElementById("standbyCalTarget").textContent = state.settings.calorieTarget.toLocaleString();
+    document.getElementById("standbyMacros").textContent = `${Math.round(totals.protein)}P · ${Math.round(totals.carbs)}C · ${Math.round(totals.fat)}F`;
+
+    const t = loadRestTimer();
+    const timerCol = document.getElementById("standbyTimerCol");
+    if(t){
+      timerCol.hidden = false;
+      const remaining = t.duration - (Date.now()-t.startedAt)/1000;
+      document.getElementById("standbyTimerValue").textContent = fmtTime(Math.max(0, remaining));
+    } else {
+      timerCol.hidden = true;
+    }
   }
 
   // ---------- Weight ----------
@@ -1783,6 +1841,7 @@
     if(!t){
       display.textContent = fmtTime(currentRestDuration);
       startBtn.textContent = "Start";
+      renderStandby();
       return;
     }
     startBtn.textContent = "Stop";
@@ -1796,6 +1855,7 @@
     } else {
       display.textContent = fmtTime(remaining);
     }
+    renderStandby();
   }
 
   // ---------- View switching ----------
@@ -2297,12 +2357,15 @@
     }
   });
 
+  window.addEventListener("orientationchange", ()=> setTimeout(renderStandby, 50));
+
   // ---------- Init ----------
   initSwipeToDelete(document.getElementById("foodLogList"));
   initSwipeToDelete(document.getElementById("weightHistoryList"));
   document.getElementById("todayDateLabel").textContent = new Date().toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
   if(loadRestTimer()) ensureTimerPolling();
   renderDashboard();
+  renderStandby();
 })();
 </script>
 </body>

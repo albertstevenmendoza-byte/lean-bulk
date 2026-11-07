@@ -192,6 +192,19 @@
   .builder-result-row:active{ background: var(--border); }
   .builder-result-name{ font-size:13.5px; font-weight:600; }
   .builder-result-kcal{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-dim); white-space:nowrap; }
+  .result-tag{ font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:2px 6px; border-radius:4px; margin-right:7px; vertical-align:1px; }
+  .result-tag.db{ background: rgba(157,127,196,0.22); color: var(--fat); }
+  .result-tag.history{ background: rgba(232,180,184,0.22); color: var(--protein); }
+  .result-tag.parsed{ background: rgba(232,168,85,0.22); color: var(--carb); }
+
+  .smart-selected-actions{ display:flex; gap:10px; }
+  .smart-selected-actions .btn-secondary{ flex:1; }
+  .smart-selected-actions .btn-primary{ flex:1; width:auto; }
+
+  .smart-fallback{ background: var(--surface-2); border:1px solid var(--border); border-radius: var(--radius-sm); padding:14px; margin-top:12px; }
+  .smart-fallback-row{ display:flex; gap:10px; margin-top:8px; }
+  .smart-fallback-row input{ flex:1; min-width:0; }
+  .smart-fallback-row button{ flex:0 0 auto; }
 
   .builder-selected{ background: var(--surface-2); border:1px solid var(--border); border-radius: var(--radius-sm); padding:14px; margin-top:12px; }
   .builder-selected-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
@@ -415,47 +428,36 @@
   <!-- ===================== FOOD ===================== -->
   <section id="view-food" class="view">
     <div class="card">
-      <div class="card-header">Quick add</div>
-      <div class="quick-add-grid">
-        <input type="text" id="qaName" class="field-input" placeholder="Food name (optional)">
-        <input type="number" id="qaKcal" class="field-input" inputmode="numeric" placeholder="kcal">
-        <input type="number" id="qaProtein" class="field-input" inputmode="numeric" placeholder="protein g">
-        <input type="number" id="qaCarbs" class="field-input" inputmode="numeric" placeholder="carbs g">
-        <input type="number" id="qaFat" class="field-input" inputmode="numeric" placeholder="fat g">
-      </div>
-      <button class="btn-primary" id="qaAddBtn">Add to log</button>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Type it naturally</div>
-      <div class="nl-row">
-        <input type="text" id="nlInput" class="field-input" placeholder="chicken rice 650kcal 50p 70c 10f">
-        <button class="btn-primary small" id="nlAddBtn">Add</button>
-      </div>
-      <div class="nl-hint">Numbers followed by kcal/p/c/f are picked up automatically; the rest becomes the name.</div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Meal builder</div>
+      <div class="card-header">Log food</div>
       <div class="builder-search-wrap">
-        <input type="text" id="builderSearch" class="field-input" placeholder="Search 85+ foods — chicken, rice, almonds…" autocomplete="off">
-        <div class="builder-results" id="builderResults" hidden></div>
+        <input type="text" id="smartFoodInput" class="field-input" placeholder="What did you eat?" autocomplete="off">
+        <div class="builder-results" id="smartResults" hidden></div>
       </div>
 
-      <div class="builder-selected" id="builderSelected" hidden>
+      <div class="builder-selected" id="smartSelected" hidden>
         <div class="builder-selected-row">
-          <span class="builder-selected-name" id="builderSelectedName"></span>
-          <button class="icon-btn" id="builderCancelBtn" aria-label="Cancel">✕</button>
+          <span class="builder-selected-name" id="smartSelectedName"></span>
+          <button class="icon-btn" id="smartCancelBtn" aria-label="Cancel">✕</button>
         </div>
         <div class="builder-gram-row">
-          <input type="number" inputmode="numeric" id="builderGrams" class="field-input tabular" placeholder="grams" value="100">
-          <span class="builder-preview tabular" id="builderPreview"></span>
+          <input type="number" inputmode="numeric" id="smartGrams" class="field-input tabular" value="100">
+          <span class="builder-preview tabular" id="smartPreview"></span>
         </div>
-        <button class="btn-secondary" id="builderAddIngredientBtn">+ Add to meal</button>
+        <div class="smart-selected-actions">
+          <button class="btn-secondary" id="smartAddAnotherBtn">+ Add another</button>
+          <button class="btn-primary" id="smartLogNowBtn">Log it</button>
+        </div>
+      </div>
+
+      <div class="smart-fallback" id="smartFallback" hidden>
+        <div class="empty-hint">No match — log it by calories instead.</div>
+        <div class="smart-fallback-row">
+          <input type="number" inputmode="numeric" id="smartFallbackKcal" class="field-input tabular" placeholder="kcal">
+          <button class="btn-primary small" id="smartFallbackLogBtn">Log</button>
+        </div>
       </div>
 
       <div id="builderIngredients"></div>
-
       <div class="builder-totals" id="builderTotals" hidden>
         <div class="builder-totals-kcal tabular" id="builderTotalKcal"></div>
         <div class="builder-totals-macros tabular" id="builderTotalMacros"></div>
@@ -464,14 +466,9 @@
       </div>
     </div>
 
-    <div class="card" id="favoritesCard">
-      <div class="card-header">Favorites</div>
-      <div class="chip-scroll" id="favoritesList"></div>
-    </div>
-
-    <div class="card" id="recentCard">
-      <div class="card-header">Recent</div>
-      <div class="chip-scroll" id="recentList"></div>
+    <div class="card" id="quickLogCard">
+      <div class="card-header">Quick log</div>
+      <div class="chip-scroll" id="quickLogChips"></div>
     </div>
 
     <div class="card">
@@ -741,17 +738,42 @@
     "Chickpeas (cooked)": [164, 8.9, 27, 2.6], "Kidney Beans (cooked)": [127, 8.7, 23, 0.5],
     "Pinto Beans (cooked)": [143, 9, 26, 0.7], "Edamame": [122, 11, 10, 5],
     "Honey": [304, 0.3, 82, 0], "Sugar": [387, 0, 100, 0], "Maple Syrup": [260, 0, 67, 0.2],
-    "Dark Chocolate (70%)": [598, 7.8, 46, 43], "Whey Protein Powder": [400, 80, 8, 5], "Hummus": [166, 7.9, 14, 9.6]
+    "Dark Chocolate (70%)": [598, 7.8, 46, 43], "Whey Protein Powder": [400, 80, 8, 5], "Hummus": [166, 7.9, 14, 9.6],
+    "Cheese Pizza": [266, 11, 33, 10], "French Fries": [312, 3.4, 41, 15], "Hamburger (fast food)": [250, 13, 25, 11],
+    "Fried Chicken": [246, 20, 8, 15], "Ice Cream (vanilla)": [207, 3.5, 24, 11], "Granola Bar": [471, 10, 64, 20],
+    "Burrito (bean & cheese)": [206, 8, 28, 7], "Mixed Green Salad (no dressing)": [20, 1.5, 4, 0.2],
+    "Ranch Dressing": [450, 1, 6, 48], "Pancakes": [227, 6, 28, 10], "Waffle": [291, 8, 33, 14],
+    "Fruit Smoothie": [60, 1, 14, 0.3], "Protein Bar": [370, 30, 35, 12], "California Roll (sushi)": [150, 5, 28, 2],
+    "Instant Ramen (cooked)": [188, 4.5, 27, 7], "Beef Taco (hard shell)": [226, 11, 19, 12],
+    "Potato Chips": [536, 7, 53, 35], "Pretzels": [380, 10, 79, 3], "Glazed Donut": [452, 5, 51, 25],
+    "Blueberry Muffin": [377, 6, 48, 18], "Caesar Salad (with chicken)": [150, 10, 6, 10]
   };
   const FOOD_DATABASE = {};
   Object.keys(FOOD_DB_100G).forEach(name=>{
     const [kcal, protein, carbs, fat] = FOOD_DB_100G[name];
     FOOD_DATABASE[name] = { kcal: kcal/100, protein: protein/100, carbs: carbs/100, fat: fat/100 };
   });
+  // Splits into lowercase words and naively singularizes ("eggs"->"egg") so
+  // plain substring matching doesn't miss close, natural phrasing.
+  function tokenize(s){
+    return s.toLowerCase().replace(/[(),]/g, " ").split(/\s+/).filter(Boolean)
+      .map(w=> (w.length > 3 && w.endsWith("s")) ? w.slice(0, -1) : w);
+  }
   function searchFoods(query){
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if(!q) return [];
-    return Object.keys(FOOD_DATABASE).filter(name=> name.toLowerCase().includes(q)).slice(0, 8);
+    const qLower = q.toLowerCase();
+    const qTokens = tokenize(q);
+    const scored = Object.keys(FOOD_DATABASE).map(name=>{
+      const nameLower = name.toLowerCase();
+      let score = nameLower.includes(qLower) ? 3 : 0;
+      const nameTokens = tokenize(name);
+      qTokens.forEach(qt=>{
+        if(nameTokens.some(nt=> nt === qt || nt.includes(qt) || qt.includes(nt))) score += 1;
+      });
+      return { name, score };
+    }).filter(r=> r.score > 0).sort((a,b)=> b.score - a.score || a.name.localeCompare(b.name));
+    return scored.slice(0, 6).map(r=> r.name);
   }
 
   // Natural-hypertrophy-oriented 5-day split: a power day for each half of
@@ -1130,55 +1152,122 @@
     renderDashboard();
   }
 
-  // ---------- Meal builder ----------
+  // ---------- Unified smart food search ----------
+  // One input covers everything: your own history (favorites/recent, exact
+  // macros, logs in one tap), the food database (fuzzy-matched, grams-based),
+  // and anything typed with explicit numbers ("chicken rice 650kcal 50p").
+  // Selecting a database match can either log immediately or add to a
+  // combined meal being built below — same underlying ingredient list either way.
   let builderIngredients = []; // { name, grams, kcal, protein, carbs, fat }
-  let builderSelectedName = null;
+  let smartSelectedDbName = null;
 
-  function renderBuilderResults(){
-    const query = document.getElementById("builderSearch").value;
-    const wrap = document.getElementById("builderResults");
-    const matches = searchFoods(query);
-    if(!matches.length){ wrap.hidden = true; wrap.innerHTML = ""; return; }
-    wrap.hidden = false;
-    wrap.innerHTML = matches.map(name=>{
+  function renderSmartResults(){
+    const query = document.getElementById("smartFoodInput").value;
+    const wrap = document.getElementById("smartResults");
+    const fallback = document.getElementById("smartFallback");
+    if(!query.trim()){ wrap.hidden = true; wrap.innerHTML = ""; fallback.hidden = true; return; }
+
+    const qLower = query.trim().toLowerCase();
+    const dbMatches = searchFoods(query).slice(0,5);
+    const seen = new Set();
+    const historyMatches = [...state.favorites, ...getRecentFoods()].filter(m=>{
+      const key = m.name.toLowerCase();
+      if(seen.has(key) || !key.includes(qLower)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0,3);
+    const parsed = parseNaturalFoodInput(query);
+    const hasParsedNumbers = parsed.kcal !== null || parsed.protein !== null || parsed.carbs !== null || parsed.fat !== null;
+
+    let rows = "";
+    if(hasParsedNumbers){
+      let kcal = parsed.kcal;
+      if(kcal === null) kcal = Math.round((parsed.protein||0)*4 + (parsed.carbs||0)*4 + (parsed.fat||0)*9);
+      rows += `<div class="builder-result-row" data-parsed="1"><span class="builder-result-name"><span class="result-tag parsed">Typed</span>${parsed.name}</span><span class="builder-result-kcal tabular">${kcal} kcal</span></div>`;
+    }
+    historyMatches.forEach(m=>{
+      rows += `<div class="builder-result-row" data-history="${m.id}"><span class="builder-result-name"><span class="result-tag history">Recent</span>${m.name}</span><span class="builder-result-kcal tabular">${Math.round(m.kcal)} kcal</span></div>`;
+    });
+    dbMatches.forEach(name=>{
       const perG = FOOD_DATABASE[name];
-      return `<div class="builder-result-row" data-select="${name}"><span class="builder-result-name">${name}</span><span class="builder-result-kcal">${Math.round(perG.kcal*100)} kcal/100g</span></div>`;
-    }).join("");
+      rows += `<div class="builder-result-row" data-db="${name}"><span class="builder-result-name"><span class="result-tag db">Food</span>${name}</span><span class="builder-result-kcal tabular">${Math.round(perG.kcal*100)}/100g</span></div>`;
+    });
+
+    if(!rows){
+      wrap.hidden = true; wrap.innerHTML = "";
+      fallback.hidden = false;
+    } else {
+      fallback.hidden = true;
+      wrap.hidden = false;
+      wrap.innerHTML = rows;
+    }
   }
-  function selectBuilderFood(name){
-    builderSelectedName = name;
-    document.getElementById("builderSearch").value = "";
-    document.getElementById("builderResults").hidden = true;
-    document.getElementById("builderSelectedName").textContent = name;
-    document.getElementById("builderGrams").value = 100;
-    document.getElementById("builderSelected").hidden = false;
-    updateBuilderPreview();
+  function clearSmartInput(){
+    document.getElementById("smartFoodInput").value = "";
+    document.getElementById("smartResults").hidden = true;
+    document.getElementById("smartFallback").hidden = true;
   }
-  function cancelBuilderSelection(){
-    builderSelectedName = null;
-    document.getElementById("builderSelected").hidden = true;
+  function selectSmartDbItem(name){
+    smartSelectedDbName = name;
+    document.getElementById("smartFoodInput").value = "";
+    document.getElementById("smartResults").hidden = true;
+    document.getElementById("smartFallback").hidden = true;
+    document.getElementById("smartSelectedName").textContent = name;
+    document.getElementById("smartGrams").value = 100;
+    document.getElementById("smartSelected").hidden = false;
+    updateSmartPreview();
   }
-  function updateBuilderPreview(){
-    if(!builderSelectedName) return;
-    const grams = parseFloat(document.getElementById("builderGrams").value) || 0;
-    const perG = FOOD_DATABASE[builderSelectedName];
+  function cancelSmartSelection(){
+    smartSelectedDbName = null;
+    document.getElementById("smartSelected").hidden = true;
+  }
+  function updateSmartPreview(){
+    if(!smartSelectedDbName) return;
+    const grams = parseFloat(document.getElementById("smartGrams").value) || 0;
+    const perG = FOOD_DATABASE[smartSelectedDbName];
     const kcal = Math.round(perG.kcal * grams);
     const protein = Math.round(perG.protein * grams);
     const carbs = Math.round(perG.carbs * grams);
     const fat = Math.round(perG.fat * grams);
-    document.getElementById("builderPreview").textContent = `${kcal} kcal · ${protein}P ${carbs}C ${fat}F`;
+    document.getElementById("smartPreview").textContent = `${kcal} kcal · ${protein}P ${carbs}C ${fat}F`;
   }
-  function addBuilderIngredient(){
-    if(!builderSelectedName) return;
-    const grams = parseFloat(document.getElementById("builderGrams").value);
+  function addSmartIngredient(){
+    if(!smartSelectedDbName) return;
+    const grams = parseFloat(document.getElementById("smartGrams").value);
     if(Number.isNaN(grams) || grams <= 0){ showToast("Enter grams"); return; }
-    const perG = FOOD_DATABASE[builderSelectedName];
+    const perG = FOOD_DATABASE[smartSelectedDbName];
     builderIngredients.push({
-      name: builderSelectedName, grams,
+      name: smartSelectedDbName, grams,
       kcal: perG.kcal*grams, protein: perG.protein*grams, carbs: perG.carbs*grams, fat: perG.fat*grams
     });
-    cancelBuilderSelection();
+    cancelSmartSelection();
     renderBuilderIngredients();
+    showToast("Added — keep going or log below");
+  }
+  function logSmartItemNow(){
+    if(!smartSelectedDbName) return;
+    const grams = parseFloat(document.getElementById("smartGrams").value);
+    if(Number.isNaN(grams) || grams <= 0){ showToast("Enter grams"); return; }
+    const perG = FOOD_DATABASE[smartSelectedDbName];
+    addMeal({
+      name: smartSelectedDbName, kcal: Math.round(perG.kcal*grams), protein: Math.round(perG.protein*grams),
+      carbs: Math.round(perG.carbs*grams), fat: Math.round(perG.fat*grams)
+    });
+    showToast(`Logged ${smartSelectedDbName}`);
+    cancelSmartSelection();
+    renderFoodView();
+    renderDashboard();
+  }
+  function logSmartFallback(){
+    const kcal = parseFloat(document.getElementById("smartFallbackKcal").value);
+    if(Number.isNaN(kcal) || kcal <= 0){ showToast("Enter calories"); return; }
+    const name = document.getElementById("smartFoodInput").value.trim() || "Logged item";
+    addMeal({ name, kcal, protein:0, carbs:0, fat:0 });
+    showToast(`Logged ${name}`);
+    document.getElementById("smartFallbackKcal").value = "";
+    clearSmartInput();
+    renderFoodView();
+    renderDashboard();
   }
   function removeBuilderIngredient(idx){
     builderIngredients.splice(idx, 1);
@@ -1238,29 +1327,26 @@
     });
     return recent.slice(0,8);
   }
+  function renderQuickLogChips(){
+    const wrap = document.getElementById("quickLogChips");
+    wrap.innerHTML = "";
+    const favKeys = new Set(state.favorites.map(f=> f.name.toLowerCase()));
+    const recent = getRecentFoods().filter(m=> !favKeys.has(m.name.toLowerCase()));
+    const items = [...state.favorites.map(f=> ({ ...f, isFav:true })), ...recent.map(m=> ({ ...m, isFav:false }))];
+    if(!items.length){
+      wrap.innerHTML = `<div class="empty-hint">Log something once and it'll show up here for one-tap repeats.</div>`;
+      return;
+    }
+    items.forEach(item=>{
+      const chip = document.createElement("button");
+      chip.className = "food-chip";
+      chip.dataset.quicklog = item.id;
+      chip.innerHTML = `<span class="fc-name">${item.isFav ? "★ " : ""}${item.name}</span><span class="fc-kcal tabular">${Math.round(item.kcal)} kcal</span>`;
+      wrap.appendChild(chip);
+    });
+  }
   function renderFoodView(){
-    const favWrap = document.getElementById("favoritesList");
-    favWrap.innerHTML = "";
-    if(!state.favorites.length) favWrap.innerHTML = `<div class="empty-hint">Tap ☆ on a logged item to save it here.</div>`;
-    state.favorites.forEach(f=>{
-      const chip = document.createElement("button");
-      chip.className = "food-chip";
-      chip.dataset.fav = f.id;
-      chip.innerHTML = `<span class="fc-name">${f.name}</span><span class="fc-kcal tabular">${Math.round(f.kcal)} kcal</span>`;
-      favWrap.appendChild(chip);
-    });
-
-    const recentWrap = document.getElementById("recentList");
-    recentWrap.innerHTML = "";
-    const recent = getRecentFoods();
-    if(!recent.length) recentWrap.innerHTML = `<div class="empty-hint">Nothing logged yet.</div>`;
-    recent.forEach(m=>{
-      const chip = document.createElement("button");
-      chip.className = "food-chip";
-      chip.dataset.recent = m.id;
-      chip.innerHTML = `<span class="fc-name">${m.name}</span><span class="fc-kcal tabular">${Math.round(m.kcal)} kcal</span>`;
-      recentWrap.appendChild(chip);
-    });
+    renderQuickLogChips();
 
     const logWrap = document.getElementById("foodLogList");
     logWrap.innerHTML = "";
@@ -1739,65 +1825,50 @@
     btn.addEventListener("click", ()=> switchView(btn.dataset.open));
   });
 
-  document.getElementById("qaAddBtn").addEventListener("click", ()=>{
-    const name = document.getElementById("qaName").value.trim() || "Quick add";
-    const kcal = parseFloat(document.getElementById("qaKcal").value) || 0;
-    const protein = parseFloat(document.getElementById("qaProtein").value) || 0;
-    const carbs = parseFloat(document.getElementById("qaCarbs").value) || 0;
-    const fat = parseFloat(document.getElementById("qaFat").value) || 0;
-    if(!kcal && !protein && !carbs && !fat){ showToast("Enter at least one value"); return; }
-    addMeal({ name, kcal, protein, carbs, fat });
-    ["qaName","qaKcal","qaProtein","qaCarbs","qaFat"].forEach(id=> document.getElementById(id).value = "");
-    showToast(`Logged ${name}`);
-    renderFoodView();
-    renderDashboard();
-  });
-
-  document.getElementById("nlAddBtn").addEventListener("click", ()=>{
-    const text = document.getElementById("nlInput").value.trim();
-    if(!text) return;
-    const parsed = parseNaturalFoodInput(text);
-    if(parsed.kcal === null && (parsed.protein || parsed.carbs || parsed.fat)){
-      parsed.kcal = Math.round((parsed.protein||0)*4 + (parsed.carbs||0)*4 + (parsed.fat||0)*9);
+  document.getElementById("smartFoodInput").addEventListener("input", renderSmartResults);
+  document.getElementById("smartFoodInput").addEventListener("focus", renderSmartResults);
+  document.getElementById("smartResults").addEventListener("click", e=>{
+    const row = e.target.closest(".builder-result-row");
+    if(!row) return;
+    if(row.dataset.parsed){
+      const parsed = parseNaturalFoodInput(document.getElementById("smartFoodInput").value);
+      let kcal = parsed.kcal;
+      if(kcal === null) kcal = Math.round((parsed.protein||0)*4 + (parsed.carbs||0)*4 + (parsed.fat||0)*9);
+      addMeal({ name: parsed.name, kcal, protein: parsed.protein||0, carbs: parsed.carbs||0, fat: parsed.fat||0 });
+      showToast(`Logged ${parsed.name}`);
+      clearSmartInput();
+      renderFoodView();
+      renderDashboard();
+      return;
     }
-    if(parsed.kcal === null){ showToast("Couldn't find a calorie amount"); return; }
-    addMeal({ name: parsed.name, kcal: parsed.kcal, protein: parsed.protein||0, carbs: parsed.carbs||0, fat: parsed.fat||0 });
-    document.getElementById("nlInput").value = "";
-    showToast(`Logged ${parsed.name}`);
-    renderFoodView();
-    renderDashboard();
+    if(row.dataset.history){
+      const item = [...state.favorites, ...state.meals].find(m=> m.id === row.dataset.history);
+      if(item) logFromTemplate(item);
+      clearSmartInput();
+      return;
+    }
+    if(row.dataset.db) selectSmartDbItem(row.dataset.db);
   });
-
-  document.getElementById("builderSearch").addEventListener("input", renderBuilderResults);
-  document.getElementById("builderSearch").addEventListener("focus", renderBuilderResults);
-  document.getElementById("builderResults").addEventListener("click", e=>{
-    const row = e.target.closest("[data-select]");
-    if(row) selectBuilderFood(row.dataset.select);
-  });
-  document.getElementById("builderGrams").addEventListener("input", updateBuilderPreview);
-  document.getElementById("builderCancelBtn").addEventListener("click", cancelBuilderSelection);
-  document.getElementById("builderAddIngredientBtn").addEventListener("click", addBuilderIngredient);
+  document.getElementById("smartGrams").addEventListener("input", updateSmartPreview);
+  document.getElementById("smartCancelBtn").addEventListener("click", cancelSmartSelection);
+  document.getElementById("smartAddAnotherBtn").addEventListener("click", addSmartIngredient);
+  document.getElementById("smartLogNowBtn").addEventListener("click", logSmartItemNow);
+  document.getElementById("smartFallbackLogBtn").addEventListener("click", logSmartFallback);
   document.getElementById("builderIngredients").addEventListener("click", e=>{
     const btn = e.target.closest("[data-remove-ing]");
     if(btn) removeBuilderIngredient(parseInt(btn.dataset.removeIng, 10));
   });
   document.getElementById("builderLogBtn").addEventListener("click", logBuilderMeal);
   document.addEventListener("click", e=>{
-    const wrap = document.getElementById("builderResults");
+    const wrap = document.getElementById("smartResults");
     if(!wrap.hidden && !e.target.closest(".builder-search-wrap")) wrap.hidden = true;
   });
 
-  document.getElementById("favoritesList").addEventListener("click", e=>{
-    const btn = e.target.closest("[data-fav]");
+  document.getElementById("quickLogChips").addEventListener("click", e=>{
+    const btn = e.target.closest("[data-quicklog]");
     if(!btn) return;
-    const fav = state.favorites.find(f=> f.id === btn.dataset.fav);
-    if(fav) logFromTemplate(fav);
-  });
-  document.getElementById("recentList").addEventListener("click", e=>{
-    const btn = e.target.closest("[data-recent]");
-    if(!btn) return;
-    const meal = state.meals.find(m=> m.id === btn.dataset.recent);
-    if(meal) logFromTemplate(meal);
+    const item = [...state.favorites, ...state.meals].find(m=> m.id === btn.dataset.quicklog);
+    if(item) logFromTemplate(item);
   });
   document.getElementById("foodLogList").addEventListener("click", e=>{
     const favBtn = e.target.closest("[data-fav-add]");
@@ -2062,14 +2133,13 @@
       });
     });
   }
-  enterSubmits(["qaName","qaKcal","qaProtein","qaCarbs","qaFat"], "qaAddBtn");
-  enterSubmits(["nlInput"], "nlAddBtn");
   enterSubmits(["newExerciseInput"], "addExerciseBtn");
   enterSubmits(["gymGoalInput"], "gymGoalSaveBtn");
   enterSubmits(["gymWeightInput","gymRepsInput"], "addSetBtn");
   enterSubmits(["weightInput"], "logWeightBtn");
   enterSubmits(["swapInput"], "swapSaveBtn");
-  enterSubmits(["builderGrams"], "builderAddIngredientBtn");
+  enterSubmits(["smartGrams"], "smartLogNowBtn");
+  enterSubmits(["smartFallbackKcal"], "smartFallbackLogBtn");
   enterSubmits(["builderMealName"], "builderLogBtn");
   enterSubmits(["setCalTarget","setProteinTarget","setCarbTarget","setFatTarget"], "settingsSaveBtn");
 

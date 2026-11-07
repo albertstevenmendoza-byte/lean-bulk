@@ -55,7 +55,7 @@
   /* ---------- Topbar ---------- */
   .topbar{
     padding: 18px 20px 14px; position: sticky; top:0; background: var(--bg); z-index: 20;
-    border-bottom: 1px solid transparent; display:flex; justify-content:center;
+    display:flex; justify-content:center; box-shadow: 0 8px 16px -8px rgba(0,0,0,0.5);
   }
   .topbar-inner{ width:100%; max-width:520px; display:flex; align-items:center; justify-content:space-between; }
   .topbar-title{ font-weight:800; font-size:19px; letter-spacing:-0.01em; }
@@ -75,7 +75,11 @@
   .ring-wrap{ position:relative; width: min(62vw, 220px); aspect-ratio:1; }
   .ring-svg{ width:100%; height:100%; transform: rotate(-90deg); }
   .ring-track{ fill:none; stroke: var(--surface-2); stroke-width:12; }
-  .ring-fill{ fill:none; stroke: var(--accent); stroke-width:12; stroke-linecap:round; transition: stroke-dashoffset 0.6s cubic-bezier(.22,1,.36,1); }
+  .ring-fill{
+    fill:none; stroke: var(--accent); stroke-width:12; stroke-linecap:round;
+    transition: stroke-dashoffset 0.6s cubic-bezier(.22,1,.36,1);
+    filter: drop-shadow(0 0 10px rgba(168,50,63,0.55));
+  }
   .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .ring-value{ font-family: var(--font-mono); font-size:38px; font-weight:700; line-height:1; }
   .ring-label{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-dim); margin-top:6px; }
@@ -86,9 +90,9 @@
   .macro-bar-label{ width:58px; flex:0 0 auto; font-size:13px; font-weight:600; color: var(--text-dim); }
   .macro-bar-track{ flex:1; height:6px; border-radius:4px; background: var(--surface-2); overflow:hidden; }
   .macro-bar-fill{ height:100%; border-radius:4px; width:0%; transition: width 0.5s ease; }
-  .macro-bar-fill.protein{ background: var(--protein); }
-  .macro-bar-fill.carb{ background: var(--carb); }
-  .macro-bar-fill.fat{ background: var(--fat); }
+  .macro-bar-fill.protein{ background: var(--protein); box-shadow: 0 0 6px rgba(232,180,184,0.5); }
+  .macro-bar-fill.carb{ background: var(--carb); box-shadow: 0 0 6px rgba(232,168,85,0.5); }
+  .macro-bar-fill.fat{ background: var(--fat); box-shadow: 0 0 6px rgba(157,127,196,0.5); }
   .macro-bar-text{ width:76px; flex:0 0 auto; text-align:right; font-family: var(--font-mono); font-size:12px; color: var(--text-dim); }
 
   /* ---------- Quick actions ---------- */
@@ -98,13 +102,17 @@
   .quick-action-btn{
     background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-md);
     padding:16px 12px; font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
-  .quick-action-btn.primary{ background: var(--accent); color: var(--text); border-color: var(--accent); }
-  .quick-action-btn:active{ background: var(--surface-2); }
-  .quick-action-btn.primary:active{ background: var(--accent-dim); }
+  .quick-action-btn.primary{ background: var(--accent); color: var(--text); border-color: var(--accent); box-shadow: 0 4px 16px rgba(168,50,63,0.4); }
+  .quick-action-btn:active{ background: var(--surface-2); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .quick-action-btn.primary:active{ background: var(--accent-dim); box-shadow: 0 2px 8px rgba(168,50,63,0.3); }
 
   /* ---------- Cards ---------- */
-  .card{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); padding:18px; margin-bottom:16px; }
+  .card{
+    background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-lg); padding:18px; margin-bottom:16px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.03) inset;
+  }
   .card-header{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; row-gap:8px; flex-wrap:wrap; font-weight:700; font-size:15px; margin-bottom:14px; }
   .card-header-actions{ display:flex; gap:8px; flex:0 0 auto; }
   .card-header-stat{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-dim); font-weight:500; }
@@ -150,8 +158,9 @@
   .btn-primary{
     width:100%; background: var(--accent); color: var(--text); font-weight:700; border:none;
     border-radius: var(--radius-md); padding:14px; font-size:14.5px;
+    box-shadow: 0 4px 16px rgba(168,50,63,0.4);
   }
-  .btn-primary:active{ background: var(--accent-dim); }
+  .btn-primary:active{ background: var(--accent-dim); box-shadow: 0 2px 8px rgba(168,50,63,0.3); }
   .btn-primary.small{ width:auto; padding:12px 18px; flex:0 0 auto; }
   .btn-secondary{
     background: var(--surface-2); border:1px solid var(--border); color: var(--text); font-weight:600;
@@ -260,7 +269,7 @@
     position: fixed; left:0; right:0; bottom:0; height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: rgba(22,23,27,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    border-top: 1px solid var(--border); z-index: 30;
+    border-top: 1px solid var(--border); z-index: 30; box-shadow: 0 -8px 20px rgba(0,0,0,0.35);
     display:flex; justify-content:center;
   }
   .bottom-nav-inner{ width:100%; max-width:520px; display:flex; align-items:stretch; justify-content:space-around; }
@@ -270,6 +279,7 @@
   }
   .nav-btn .nav-icon{ font-size:20px; line-height:1; }
   .nav-btn.active{ color: var(--accent); }
+  .nav-btn.active .nav-icon{ filter: drop-shadow(0 0 6px rgba(168,50,63,0.6)); }
 
   /* ---------- Modal ---------- */
   .modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,0.6); z-index:100; display:flex; align-items:flex-end; justify-content:center; }
@@ -278,6 +288,7 @@
     width:100%; max-width:520px; background: var(--surface); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);
     padding: 20px 20px calc(24px + env(safe-area-inset-bottom, 0px)); border:1px solid var(--border); border-bottom:none;
     max-height:82vh; overflow-y:auto; animation: slideUp 0.22s cubic-bezier(.22,1,.36,1);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
   }
   @keyframes slideUp{ from{ transform: translateY(24px); opacity:0.5; } to{ transform:none; opacity:1; } }
   .modal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
@@ -510,7 +521,7 @@
       <div class="card" id="gymLastSession"></div>
 
       <div class="card" id="gymProgressCard" hidden>
-        <div class="card-header"><span>Progress</span><span class="card-header-stat" id="gymProgressStat"></span></div>
+        <div class="card-header"><span>Progress · est. 1RM</span><span class="card-header-stat tabular" id="gymProgressStat"></span></div>
         <canvas id="gymProgressChart" class="chart-canvas"></canvas>
       </div>
 
@@ -978,6 +989,8 @@
       ctx.strokeStyle = "#c2505e";
       ctx.lineWidth = 2.5;
       ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.shadowColor = "rgba(194,80,94,0.6)";
+      ctx.shadowBlur = 8;
       ctx.beginPath();
       smoothPath(avg, avgX);
       ctx.stroke();
@@ -986,6 +999,7 @@
       ctx.arc(avgX(lastIdx), yFor(avg[lastIdx].lbs), 4, 0, Math.PI*2);
       ctx.fillStyle = "#c2505e";
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
   }
   function renderWeightChart(canvasId, statId){
@@ -1375,10 +1389,23 @@
     document.getElementById("gymModeWrap").hidden = true;
     renderDayDetail();
   }
+  // Epley formula: a standard estimated-1RM used across strength training.
+  // Unlike raw top weight, it credits a rep increase at the same weight as
+  // real progress (165x8 scores higher than 165x5), not just a heavier set.
+  function estimate1RM(weight, reps){
+    if(reps <= 1) return weight;
+    return weight * (1 + reps/30);
+  }
   function getExerciseHistory(name){
     return getExerciseLogs(name)
       .filter(e=> e.sets.length)
-      .map(e=> ({ date: e.date, topWeight: e.sets.reduce((max,s)=> s.weight > max ? s.weight : max, 0) }));
+      .map(e=>{
+        const best = e.sets.reduce((best,s)=>{
+          const e1rm = estimate1RM(s.weight, s.reps);
+          return e1rm > best.e1rm ? { weight: s.weight, reps: s.reps, e1rm } : best;
+        }, { weight: 0, reps: 0, e1rm: 0 });
+        return { date: e.date, weight: best.weight, reps: best.reps, e1rm: Math.round(best.e1rm) };
+      });
   }
   function drawExerciseChart(canvas, points){
     const ctx = canvas.getContext("2d");
@@ -1392,21 +1419,21 @@
     if(points.length < 2) return;
 
     const padX = 8, padY = 12;
-    const values = points.map(p=> p.topWeight);
+    const values = points.map(p=> p.e1rm);
     const min = Math.min(...values), max = Math.max(...values), range = (max-min) || 1;
     const n = points.length;
     const xFor = i => n === 1 ? w/2 : padX + (i/(n-1)) * (w - padX*2);
     const yFor = v => h - padY - ((v-min)/range) * (h - padY*2);
 
     function smoothPath(){
-      ctx.moveTo(xFor(0), yFor(points[0].topWeight));
+      ctx.moveTo(xFor(0), yFor(points[0].e1rm));
       for(let i=1;i<points.length-1;i++){
         const xc = (xFor(i)+xFor(i+1))/2;
-        const yc = (yFor(points[i].topWeight)+yFor(points[i+1].topWeight))/2;
-        ctx.quadraticCurveTo(xFor(i), yFor(points[i].topWeight), xc, yc);
+        const yc = (yFor(points[i].e1rm)+yFor(points[i+1].e1rm))/2;
+        ctx.quadraticCurveTo(xFor(i), yFor(points[i].e1rm), xc, yc);
       }
       const last = points.length-1;
-      ctx.quadraticCurveTo(xFor(last-1), yFor(points[last-1].topWeight), xFor(last), yFor(points[last].topWeight));
+      ctx.quadraticCurveTo(xFor(last-1), yFor(points[last-1].e1rm), xFor(last), yFor(points[last].e1rm));
     }
 
     const grad = ctx.createLinearGradient(0,0,0,h);
@@ -1423,24 +1450,27 @@
     ctx.strokeStyle = "#c2505e";
     ctx.lineWidth = 2.5;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.shadowColor = "rgba(194,80,94,0.6)";
+    ctx.shadowBlur = 8;
     ctx.beginPath();
     smoothPath();
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(xFor(n-1), yFor(points[n-1].topWeight), 4, 0, Math.PI*2);
+    ctx.arc(xFor(n-1), yFor(points[n-1].e1rm), 4, 0, Math.PI*2);
     ctx.fillStyle = "#c2505e";
     ctx.fill();
+    ctx.shadowBlur = 0;
   }
   function renderExerciseChart(){
     const card = document.getElementById("gymProgressCard");
     const history = getExerciseHistory(currentExercise);
     if(history.length < 2){ card.hidden = true; return; }
     card.hidden = false;
-    const first = history[0].topWeight, latest = history[history.length-1].topWeight;
-    const diff = latest - first;
+    const first = history[0].e1rm, latest = history[history.length-1];
+    const diff = latest.e1rm - first;
     const statEl = document.getElementById("gymProgressStat");
-    statEl.textContent = diff === 0 ? `${latest} lbs` : `${latest} lbs (${diff > 0 ? "+" : ""}${Math.round(diff*10)/10})`;
+    statEl.textContent = `${latest.e1rm} e1RM (${latest.weight}×${latest.reps})${diff === 0 ? "" : ` · ${diff > 0 ? "+" : ""}${diff}`}`;
     requestAnimationFrame(()=> drawExerciseChart(document.getElementById("gymProgressChart"), history));
   }
   function getTopWeight(name){
@@ -1509,8 +1539,16 @@
 
     // Compare against history BEFORE this set is added, so it's a fair
     // all-time-best check, not compared against itself.
-    const priorBest = getExerciseLogs(currentExercise).reduce((max,e)=> Math.max(max, e.sets.reduce((m,s)=> Math.max(m,s.weight), 0)), 0);
+    const priorLogs = getExerciseLogs(currentExercise);
+    const priorBest = priorLogs.reduce((max,e)=> Math.max(max, e.sets.reduce((m,s)=> Math.max(m,s.weight), 0)), 0);
     const isPR = priorBest > 0 && weight > priorBest;
+    // Same weight, more reps than ever before at it — real progress even
+    // when the weight itself isn't a new high.
+    const priorBestRepsAtWeight = priorLogs.reduce((max,e)=>{
+      const repsAtWeight = e.sets.filter(s=> s.weight === weight).reduce((m,s)=> Math.max(m,s.reps), 0);
+      return Math.max(max, repsAtWeight);
+    }, 0);
+    const isRepPR = !isPR && priorBestRepsAtWeight > 0 && reps > priorBestRepsAtWeight;
 
     if(!state.workouts[currentExercise]) state.workouts[currentExercise] = [];
     const today = todayISO();
@@ -1527,6 +1565,9 @@
     } else if(isPR){
       saveState();
       showToast(`🏆 New PR — ${weight} lbs!`);
+    } else if(isRepPR){
+      saveState();
+      showToast(`💪 Rep PR — ${reps} reps at ${weight} lbs!`);
     } else {
       saveState();
       showToast("Set logged");

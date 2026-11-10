@@ -95,6 +95,17 @@
   .macro-bar-fill.fat{ background: var(--fat); box-shadow: 0 0 6px rgba(157,127,196,0.5); }
   .macro-bar-text{ width:76px; flex:0 0 auto; text-align:right; font-family: var(--font-mono); font-size:12px; color: var(--text-dim); }
 
+  /* ---------- Daily burn card ---------- */
+  .burn-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px; }
+  .burn-cell{ background: var(--surface-2, rgba(255,255,255,0.04)); border:1px solid var(--border); border-radius: var(--radius-md); padding:10px 12px; min-width:0; }
+  .burn-cell-label{ font-size:11.5px; color: var(--text-dim); font-weight:600; margin-bottom:4px; }
+  .burn-cell-value{ font-size:19px; font-weight:700; }
+  .burn-row{ display:flex; gap:8px; align-items:center; }
+  .burn-row .field-input{ flex:1 1 auto; min-width:0; }
+  .burn-row .btn-secondary{ flex:0 0 auto; width:auto; padding-left:16px; padding-right:16px; }
+  .burn-note{ font-size:12px; color: var(--muted); margin-top:10px; line-height:1.45; }
+  .burn-apply{ width:100%; margin-top:10px; }
+
   /* ---------- Quick actions ---------- */
   .quick-actions{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin: 22px 0 24px; }
   .quick-actions > *{ min-width:0; }
@@ -410,6 +421,7 @@
           </div>
         </div>
         <div class="ring-remaining" id="dashCalRemaining"></div>
+        <div class="burn-note" id="dashCalHeadline" style="text-align:center;" hidden></div>
       </div>
 
       <div class="macro-bars">
@@ -438,6 +450,24 @@
     </div>
 
     <div class="dash-col-right">
+      <div class="card" id="burnCard">
+        <div class="card-header"><span>Today's burn</span><span class="card-header-stat" id="burnStat"></span></div>
+        <div class="burn-grid">
+          <div class="burn-cell"><div class="burn-cell-label">Est. burn</div><div class="burn-cell-value tabular" id="burnTotal">–</div></div>
+          <div class="burn-cell"><div class="burn-cell-label">Suggested target</div><div class="burn-cell-value tabular" id="burnSuggested">–</div></div>
+        </div>
+        <div class="burn-row">
+          <input type="number" inputmode="numeric" id="stepsInput" class="field-input tabular" placeholder="Steps today">
+          <button class="btn-secondary" id="stepsSaveBtn">Log steps</button>
+        </div>
+        <div class="burn-row" style="margin-top:8px;">
+          <input type="number" inputmode="numeric" id="plannedStepsInput" class="field-input tabular" placeholder="Planned steps (optional)">
+          <button class="btn-secondary" id="plannedStepsSaveBtn">Set plan</button>
+        </div>
+        <div class="burn-note" id="burnBreakdown"></div>
+        <button class="btn-secondary burn-apply" id="burnApplyBtn" hidden>Use suggested as today's target</button>
+      </div>
+
       <div class="card">
         <div class="card-header"><span>Weight trend</span><span class="card-header-stat" id="weightTrendStat"></span></div>
         <canvas id="weightChart" class="chart-canvas"></canvas>
@@ -674,6 +704,28 @@
       <label>Fat (g)</label>
       <input type="number" inputmode="numeric" id="setFatTarget" class="field-input tabular">
     </div>
+    <div class="settings-divider"></div>
+    <div class="settings-field">
+      <label>Auto-adjust target</label>
+      <p class="settings-hint">When on, your calorie target is your estimated burn plus your surplus, and it updates as you log steps or lift.</p>
+      <button class="btn-secondary" id="autoTargetBtn" style="width:100%;">Off</button>
+    </div>
+    <div class="settings-field">
+      <label>Height (inches)</label>
+      <input type="number" inputmode="decimal" id="setHeightIn" class="field-input tabular">
+    </div>
+    <div class="settings-field">
+      <label>Age</label>
+      <input type="number" inputmode="numeric" id="setAge" class="field-input tabular">
+    </div>
+    <div class="settings-field">
+      <label>Sex (for the burn formula)</label>
+      <button class="btn-secondary" id="setSexBtn" style="width:100%;">Male</button>
+    </div>
+    <div class="settings-field">
+      <label>Surplus on top of burn (kcal)</label>
+      <input type="number" inputmode="numeric" id="setSurplus" class="field-input tabular">
+    </div>
     <button class="btn-primary" id="settingsSaveBtn">Save</button>
 
     <div class="settings-divider"></div>
@@ -879,7 +931,7 @@
   // ---------- State ----------
   function blankState(){
     return {
-      settings: { calorieTarget: 2450, proteinTarget: 180, carbTarget: 250, fatTarget: 70, soundEnabled: true },
+      settings: { calorieTarget: 2450, proteinTarget: 180, carbTarget: 250, fatTarget: 70, soundEnabled: true, heightIn: 66, age: 33, sex: "male", surplus: 300, autoTarget: false },
       weight: [],      // {date, lbs}
       meals: [],       // {id, date, name, kcal, protein, carbs, fat}
       favorites: [],   // {id, name, kcal, protein, carbs, fat}
@@ -887,7 +939,9 @@
       overrides: {},    // { [slotId]: swappedExerciseName } — replaces a program slot's default exercise
       workouts: {},     // { [exerciseName]: [{date, sets:[{weight,reps}]}] }
       goals: {},        // { [exerciseName]: targetWeight }
-      goalCelebrations: {} // { [exerciseName]: lastCelebratedDate } — once-per-day "goal reached" toast
+      goalCelebrations: {}, // { [exerciseName]: lastCelebratedDate } — once-per-day "goal reached" toast
+      steps: {},       // { [YYYY-MM-DD]: stepCount }
+      plannedSteps: {} // { [YYYY-MM-DD]: expected stepCount, used until real steps are logged }
     };
   }
   function loadState(){
@@ -977,6 +1031,94 @@
       wrap.appendChild(row);
     });
   }
+  // ---------- Daily burn estimate ----------
+  // Resting burn: Mifflin-St Jeor. Walking: kcal = METs x kg x hours (1 MET = 1 kcal/kg/hr),
+  // using ~3.5 METs at a casual 3 mph pace, minus 1 MET so resting isn't counted twice.
+  // Lifting: ~5 METs (vigorous resistance training) for about the session length, also net of rest.
+  const LB_PER_KG = 2.20462;
+  const WALK_MPH = 3;
+  const WALK_NET_MET = 2.5;   // 3.5 METs walking minus 1 MET resting
+  const LIFT_NET_MET = 4;     // 5 METs lifting minus 1 MET resting
+  const LIFT_HOURS = 1;
+  const SEDENTARY_FACTOR = 1.2; // everyday non-exercise movement on top of resting burn
+  function latestWeightLbs(){
+    const w = sortedWeight();
+    return w.length ? w[w.length-1].lbs : null;
+  }
+  function restingBurn(lbs){
+    const st = state.settings;
+    const kg = lbs / LB_PER_KG;
+    const cm = st.heightIn * 2.54;
+    return 10*kg + 6.25*cm - 5*st.age + (st.sex === "female" ? -161 : 5);
+  }
+  function stepsToMiles(steps){
+    const strideIn = state.settings.heightIn * (state.settings.sex === "female" ? 0.413 : 0.415);
+    return steps * strideIn / 63360;
+  }
+  function didLiftToday(){
+    const t = todayISO();
+    return Object.keys(state.workouts).some(name=> state.workouts[name].some(e=> e.date === t && e.sets && e.sets.length));
+  }
+  function computeBurn(){
+    const lbs = latestWeightLbs();
+    if(!lbs) return null;
+    const kg = lbs / LB_PER_KG;
+    const realSteps = state.steps[todayISO()];
+    const plannedSteps = state.plannedSteps[todayISO()];
+    const usingPlan = !realSteps && !!plannedSteps;
+    const steps = realSteps || plannedSteps || 0;
+    const rest = restingBurn(lbs);
+    const base = rest * SEDENTARY_FACTOR;
+    const hours = stepsToMiles(steps) / WALK_MPH;
+    const walk = WALK_NET_MET * kg * hours;
+    const lift = didLiftToday() ? LIFT_NET_MET * kg * LIFT_HOURS : 0;
+    const total = base + walk + lift;
+    return { rest, base, walk, lift, total, steps, usingPlan, miles: stepsToMiles(steps), suggested: total + (state.settings.surplus || 0) };
+  }
+  function effectiveTarget(){
+    if(state.settings.autoTarget){
+      const b = computeBurn();
+      if(b) return Math.round(b.suggested);
+    }
+    return state.settings.calorieTarget;
+  }
+  function renderBurn(){
+    const b = computeBurn();
+    const totalEl = document.getElementById("burnTotal");
+    const sugEl = document.getElementById("burnSuggested");
+    const noteEl = document.getElementById("burnBreakdown");
+    const applyBtn = document.getElementById("burnApplyBtn");
+    const statEl = document.getElementById("burnStat");
+    const stepsInput = document.getElementById("stepsInput");
+    const logged = state.steps[todayISO()];
+    if(document.activeElement !== stepsInput) stepsInput.value = logged ? logged : "";
+    const plannedInput = document.getElementById("plannedStepsInput");
+    const plannedVal = state.plannedSteps[todayISO()];
+    if(document.activeElement !== plannedInput) plannedInput.value = plannedVal ? plannedVal : "";
+    const headline = document.getElementById("dashCalHeadline");
+    if(!b){
+      totalEl.textContent = "–"; sugEl.textContent = "–"; statEl.textContent = "";
+      noteEl.textContent = "Log a weight on the Weight tab first so the app can estimate your burn.";
+      applyBtn.hidden = true;
+      headline.hidden = true;
+      return;
+    }
+    totalEl.textContent = Math.round(b.total).toLocaleString();
+    sugEl.textContent = Math.round(b.suggested).toLocaleString();
+    statEl.textContent = `${b.steps.toLocaleString()} steps${b.usingPlan ? " (planned)" : ""} · ${b.miles.toFixed(1)} mi`;
+    const parts = [`Resting ${Math.round(b.rest).toLocaleString()} (x1.2 daily living = ${Math.round(b.base).toLocaleString()})`];
+    if(b.walk > 0) parts.push(`walking +${Math.round(b.walk)}`);
+    if(b.lift > 0) parts.push(`lifting +${Math.round(b.lift)}`);
+    noteEl.textContent = parts.join(", ") + `. Estimate only, so check it against your weight trend over a couple of weeks.`;
+    applyBtn.hidden = state.settings.autoTarget || Math.round(b.suggested) === Math.round(state.settings.calorieTarget);
+    if(state.settings.autoTarget){
+      headline.hidden = false;
+      headline.textContent = `You have ${Math.round(b.suggested).toLocaleString()} calories today${b.usingPlan ? ", based on your planned steps" : ""}.`;
+    } else {
+      headline.hidden = true;
+    }
+  }
+
   function renderDashboard(){
     const streak = computeWeeklyStreak();
     const streakEl = document.getElementById("topbarStreak");
@@ -985,7 +1127,7 @@
 
     const meals = todaysMeals();
     const totals = dailyTotals(meals);
-    const target = state.settings.calorieTarget;
+    const target = effectiveTarget();
 
     document.getElementById("dashCalValue").textContent = Math.round(totals.kcal).toLocaleString();
     document.getElementById("dashCalTarget").textContent = target.toLocaleString();
@@ -1001,6 +1143,7 @@
     setMacroBar("carbs", "carb", totals.carbs, state.settings.carbTarget);
     setMacroBar("fat", "fat", totals.fat, state.settings.fatTarget);
 
+    renderBurn();
     renderWeightChart("weightChart", "weightTrendStat");
     renderDashMealList(meals);
     renderStandby();
@@ -1012,7 +1155,7 @@
   function renderStandby(){
     const totals = dailyTotals(todaysMeals());
     document.getElementById("standbyCalValue").textContent = Math.round(totals.kcal).toLocaleString();
-    document.getElementById("standbyCalTarget").textContent = state.settings.calorieTarget.toLocaleString();
+    document.getElementById("standbyCalTarget").textContent = effectiveTarget().toLocaleString();
     document.getElementById("standbyMacros").textContent = `${Math.round(totals.protein)}P · ${Math.round(totals.carbs)}C · ${Math.round(totals.fat)}F`;
 
     const t = loadRestTimer();
@@ -2081,12 +2224,53 @@
     if(btn) deleteWeightEntryWithUndo(btn.dataset.delWeight);
   });
 
+  document.getElementById("stepsSaveBtn").addEventListener("click", ()=>{
+    const v = parseFloat(document.getElementById("stepsInput").value);
+    if(isNaN(v) || v < 0){ showToast("Enter your step count"); return; }
+    state.steps[todayISO()] = Math.round(v);
+    saveState();
+    document.getElementById("stepsInput").blur();
+    showToast("Steps saved");
+    renderBurn();
+  });
+  document.getElementById("plannedStepsSaveBtn").addEventListener("click", ()=>{
+    const raw = document.getElementById("plannedStepsInput").value;
+    const v = parseFloat(raw);
+    if(raw === "" ){ delete state.plannedSteps[todayISO()]; }
+    else if(isNaN(v) || v < 0){ showToast("Enter a step count"); return; }
+    else { state.plannedSteps[todayISO()] = Math.round(v); }
+    saveState();
+    document.getElementById("plannedStepsInput").blur();
+    showToast(raw === "" ? "Plan cleared" : "Plan saved");
+    renderDashboard();
+  });
+  document.getElementById("autoTargetBtn").addEventListener("click", ()=>{
+    state.settings.autoTarget = !state.settings.autoTarget;
+    saveState();
+    document.getElementById("autoTargetBtn").textContent = state.settings.autoTarget ? "On" : "Off";
+    showToast(state.settings.autoTarget ? "Target auto-adjusts" : "Target is manual");
+    renderDashboard();
+  });
+  document.getElementById("burnApplyBtn").addEventListener("click", ()=>{
+    const b = computeBurn();
+    if(!b) return;
+    state.settings.calorieTarget = Math.round(b.suggested);
+    saveState();
+    showToast(`Target set to ${state.settings.calorieTarget.toLocaleString()}`);
+    renderDashboard();
+  });
+
   document.getElementById("settingsBtn").addEventListener("click", ()=>{
     document.getElementById("setCalTarget").value = state.settings.calorieTarget;
     document.getElementById("setProteinTarget").value = state.settings.proteinTarget;
     document.getElementById("setCarbTarget").value = state.settings.carbTarget;
     document.getElementById("setFatTarget").value = state.settings.fatTarget;
     document.getElementById("soundToggleBtn").textContent = state.settings.soundEnabled ? "On" : "Off";
+    document.getElementById("autoTargetBtn").textContent = state.settings.autoTarget ? "On" : "Off";
+    document.getElementById("setHeightIn").value = state.settings.heightIn;
+    document.getElementById("setAge").value = state.settings.age;
+    document.getElementById("setSurplus").value = state.settings.surplus;
+    document.getElementById("setSexBtn").textContent = state.settings.sex === "female" ? "Female" : "Male";
     document.getElementById("settingsModal").hidden = false;
   });
   document.getElementById("soundToggleBtn").addEventListener("click", ()=>{
@@ -2094,6 +2278,11 @@
     saveState();
     document.getElementById("soundToggleBtn").textContent = state.settings.soundEnabled ? "On" : "Off";
     showToast(state.settings.soundEnabled ? "Sound on" : "Sound off");
+  });
+  document.getElementById("setSexBtn").addEventListener("click", ()=>{
+    state.settings.sex = state.settings.sex === "female" ? "male" : "female";
+    document.getElementById("setSexBtn").textContent = state.settings.sex === "female" ? "Female" : "Male";
+    saveState();
   });
   document.getElementById("settingsClose").addEventListener("click", ()=>{
     document.getElementById("settingsModal").hidden = true;
@@ -2106,6 +2295,10 @@
     state.settings.proteinTarget = parseFloat(document.getElementById("setProteinTarget").value) || state.settings.proteinTarget;
     state.settings.carbTarget = parseFloat(document.getElementById("setCarbTarget").value) || state.settings.carbTarget;
     state.settings.fatTarget = parseFloat(document.getElementById("setFatTarget").value) || state.settings.fatTarget;
+    state.settings.heightIn = parseFloat(document.getElementById("setHeightIn").value) || state.settings.heightIn;
+    state.settings.age = parseFloat(document.getElementById("setAge").value) || state.settings.age;
+    const surplusVal = parseFloat(document.getElementById("setSurplus").value);
+    if(!isNaN(surplusVal)) state.settings.surplus = surplusVal;
     saveState();
     document.getElementById("settingsModal").hidden = true;
     showToast("Targets updated");
@@ -2201,7 +2394,9 @@
   enterSubmits(["smartGrams"], "smartLogNowBtn");
   enterSubmits(["smartFallbackKcal"], "smartFallbackLogBtn");
   enterSubmits(["builderMealName"], "builderLogBtn");
-  enterSubmits(["setCalTarget","setProteinTarget","setCarbTarget","setFatTarget"], "settingsSaveBtn");
+  enterSubmits(["setCalTarget","setProteinTarget","setCarbTarget","setFatTarget","setHeightIn","setAge","setSurplus"], "settingsSaveBtn");
+  enterSubmits(["stepsInput"], "stepsSaveBtn");
+  enterSubmits(["plannedStepsInput"], "plannedStepsSaveBtn");
 
   // ---------- Exercise swap ----------
   let swapSlotId = null;
@@ -2282,6 +2477,10 @@
     const importedGoals = raw.goals || {};
     const importedGoalCelebrations = raw.goalCelebrations || {};
     const importedOverrides = raw.overrides || {};
+    const importedSteps = raw.steps || {};
+    const importedPlanned = raw.plannedSteps || {};
+    Object.keys(importedPlanned).forEach(d=>{ if(state.plannedSteps[d] === undefined) state.plannedSteps[d] = importedPlanned[d]; });
+    Object.keys(importedSteps).forEach(d=>{ if(state.steps[d] === undefined) state.steps[d] = importedSteps[d]; });
 
     Object.keys(importedWorkouts).forEach(name=>{
       if(!state.workouts[name]) state.workouts[name] = [];

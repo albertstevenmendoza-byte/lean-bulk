@@ -161,6 +161,18 @@
   .recipe-item-ings{ font-family: var(--font-mono); font-size:11px; color: var(--muted); margin-bottom:9px; }
   .recipe-item-tag{ display:inline-block; font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--carb); border:1px solid var(--carb); border-radius:5px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
   .fits-tag{ display:inline-block; font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--good); border:1px solid var(--good); border-radius:5px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
+  .have-tag{ display:inline-block; font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--protein); border:1px solid var(--protein); border-radius:5px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
+  .recipe-item-missing{ font-size:11.5px; color: var(--muted); margin:-3px 0 9px; line-height:1.4; }
+  .seg-toggle{ display:flex; gap:6px; background: var(--surface-2); border-radius:10px; padding:3px; margin-bottom:14px; }
+  .seg-btn{ flex:1; border:none; background:none; color: var(--text-dim); font-weight:700; font-size:13px; padding:8px 0; border-radius:8px; font-family: inherit; }
+  .seg-btn.active{ background: var(--surface); color: var(--text); }
+  .pantry-actions{ display:flex; gap:8px; margin-bottom:16px; }
+  .pantry-actions .btn-secondary{ flex:1; }
+  .pantry-group{ margin-bottom:16px; }
+  .pantry-group-title{ font-size:12.5px; font-weight:700; color: var(--text-dim); margin-bottom:8px; }
+  .pantry-chips{ display:flex; flex-wrap:wrap; gap:7px; }
+  .pantry-chip{ font-family: inherit; font-size:12.5px; font-weight:600; color: var(--text-dim); background: var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:7px 13px; }
+  .pantry-chip.on{ background: var(--surface-2); color: var(--protein); border-color: var(--protein); }
   .food-chip.fits{ border-color: var(--good); }
   .food-chip{
     flex:0 0 auto; background: var(--surface-2); border:1px solid var(--border); border-radius:999px;
@@ -540,14 +552,21 @@
       </div>
     </div>
 
-    <div class="card" id="cuttingPicksCard">
-      <div class="card-header"><span id="cuttingPicksTitle">Suggested foods</span><span class="card-header-stat">fits what's left today, first</span></div>
-      <div class="chip-scroll" id="cuttingPicksChips"></div>
-    </div>
-
-    <div class="card" id="cuttingRecipesCard">
-      <div class="card-header"><span id="cuttingRecipesTitle">Meal ideas</span><span class="card-header-stat">fits what's left today, first</span></div>
+    <div class="card" id="suggestionsCard">
+      <div class="card-header">
+        <span>Suggestions</span>
+        <div class="card-header-actions">
+          <button class="btn-secondary small" id="pantryBtn" type="button">🧺 Pantry</button>
+        </div>
+      </div>
+      <div class="card-header-stat" id="suggestionsSubtitle" style="margin:-8px 0 12px;">fits what's left today, first</div>
+      <div class="seg-toggle" id="suggestionTypeToggle">
+        <button class="seg-btn" data-suggestion-tab="foods" type="button">Foods</button>
+        <button class="seg-btn active" data-suggestion-tab="meals" type="button">Meals</button>
+      </div>
+      <div class="chip-scroll" id="cuttingPicksChips" hidden></div>
       <div id="cuttingRecipesList"></div>
+      <button class="btn-secondary small" id="showMoreRecipesBtn" type="button" hidden style="width:100%; margin-top:4px;"></button>
     </div>
 
     <div class="card" id="quickLogCard">
@@ -790,6 +809,21 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="pantryModal" hidden>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Pantry</span>
+      <button class="icon-btn" id="pantryClose" aria-label="Close">✕</button>
+    </div>
+    <p class="settings-hint">Mark what you've actually got. Meal ideas you can make right now move to the top of Suggestions — leave this empty and suggestions just sort by what fits your calories, like normal.</p>
+    <div class="pantry-actions">
+      <button class="btn-secondary small" id="pantrySelectAllBtn" type="button">Select all</button>
+      <button class="btn-secondary small" id="pantryClearAllBtn" type="button">Clear all</button>
+    </div>
+    <div id="pantryGroups"></div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="mixDaysModal" hidden>
   <div class="modal-sheet">
     <div class="modal-header">
@@ -886,19 +920,40 @@
     const [kcal, protein, carbs, fat] = FOOD_DB_100G[name];
     FOOD_DATABASE[name] = { kcal: kcal/100, protein: protein/100, carbs: carbs/100, fat: fat/100 };
   });
+  // Curated low-cost grocery staples -- ordinary supermarket items only.
+  // No salmon, shrimp, steak, specialty nuts/cheese, or packaged snack
+  // foods. Every suggested food and recipe below is built exclusively
+  // from this pool, and it's also the checklist Albert can mark up in
+  // the Pantry so suggestions can tell what he actually has on hand.
+  const LOW_COST_STAPLES = {
+    "Protein": ["Egg (whole)","Egg White","Chicken Breast (cooked)","Chicken Thigh (cooked)",
+      "Ground Beef 85% (cooked)","Ground Beef 93% (cooked)","Tuna (canned, water)","Turkey Breast (cooked)",
+      "Deli Turkey","Deli Ham","Tofu (firm)","Cottage Cheese (low-fat)","Greek Yogurt (nonfat)",
+      "Black Beans (cooked)","Lentils (cooked)","Chickpeas (cooked)","Kidney Beans (cooked)",
+      "Pinto Beans (cooked)","Peanut Butter","Whey Protein Powder"],
+    "Carbs": ["White Rice (cooked)","Brown Rice (cooked)","Oats (dry)","Pasta (cooked)","White Bread",
+      "Whole Wheat Bread","Corn Tortilla","Flour Tortilla","Banana","Potato (baked)","Sweet Potato (cooked)","Honey"],
+    "Veggies & Fruit": ["Broccoli","Spinach","Carrot","Tomato","Bell Pepper","Cucumber","Lettuce","Onion",
+      "Mushrooms","Zucchini","Green Beans","Cauliflower","Corn","Peas","Mixed Green Salad (no dressing)",
+      "Apple","Orange","Blueberries","Strawberries","Grapes"],
+    "Dairy & Pantry": ["Whole Milk","Skim Milk","Cheddar Cheese","Butter","Olive Oil","Chia Seeds"]
+  };
+  const STAPLE_LIST = Object.values(LOW_COST_STAPLES).flat();
   const CUTTING_PICKS = [
     { name: "Egg White", grams: 150 },
     { name: "Greek Yogurt (nonfat)", grams: 200 },
     { name: "Chicken Breast (cooked)", grams: 170 },
-    { name: "Shrimp (cooked)", grams: 170 },
+    { name: "Turkey Breast (cooked)", grams: 170 },
     { name: "Tuna (canned, water)", grams: 140 },
     { name: "Cottage Cheese (low-fat)", grams: 170 },
-    { name: "Tilapia (cooked)", grams: 170 },
+    { name: "Tofu (firm)", grams: 200 },
+    { name: "Black Beans (cooked)", grams: 150 },
     { name: "Broccoli", grams: 200 },
     { name: "Mixed Green Salad (no dressing)", grams: 200 },
     { name: "Zucchini", grams: 200 },
     { name: "Cucumber", grams: 200 },
-    { name: "Asparagus", grams: 200 }
+    { name: "Green Beans", grams: 200 },
+    { name: "Cauliflower", grams: 200 }
   ];
   function logCuttingPick(name, grams){
     const perG = FOOD_DATABASE[name];
@@ -916,30 +971,50 @@
   // Sorts anything with a kcal cost so items that fit within what's left
   // come first (biggest/most-filling fitting option first), then items
   // that would go over, smallest overage first.
-  function sortByCalorieFit(items, kcalOf){
+  // tieBreakOf is optional: a lower number sorts first WITHIN the fits /
+  // doesn't-fit groups, before falling back to the kcal ordering. Used to
+  // bring pantry-matching items ahead of ones Albert doesn't have on hand,
+  // without ever overriding the calorie-fit-first requirement.
+  function sortByCalorieFit(items, kcalOf, tieBreakOf){
     const remaining = remainingCalories();
-    return items.map((item,i)=> ({ item, kcal: kcalOf(item), i }))
+    return items.map((item,i)=> ({ item, kcal: kcalOf(item), tie: tieBreakOf ? tieBreakOf(item) : 0, i }))
       .sort((a,b)=>{
         const aFits = a.kcal <= remaining, bFits = b.kcal <= remaining;
         if(aFits !== bFits) return aFits ? -1 : 1;
+        if(a.tie !== b.tie) return a.tie - b.tie;
         return aFits ? (b.kcal - a.kcal) : (a.kcal - b.kcal);
       })
       .map(x=> x.item);
+  }
+  // Pantry: a simple "do I have this" checklist over the low-cost staple
+  // list. Empty/unused pantry means every suggestion is treated as
+  // equally available (no penalty) so this never gets in the way for
+  // someone who hasn't set it up yet.
+  function pantryHasAny(){
+    return Object.keys(state.pantry).some(k=> state.pantry[k]);
+  }
+  function missingIngredients(recipe){
+    if(!pantryHasAny()) return [];
+    return recipe.ingredients.map(([name])=> name).filter(name=> !state.pantry[name]);
   }
   function renderCuttingPicks(){
     const wrap = document.getElementById("cuttingPicksChips");
     wrap.innerHTML = "";
     const remaining = remainingCalories();
-    const sorted = sortByCalorieFit(CUTTING_PICKS, p=> (FOOD_DATABASE[p.name] ? FOOD_DATABASE[p.name].kcal * p.grams : 0));
+    const haveAny = pantryHasAny();
+    const sorted = sortByCalorieFit(CUTTING_PICKS,
+      p=> (FOOD_DATABASE[p.name] ? FOOD_DATABASE[p.name].kcal * p.grams : 0),
+      p=> (haveAny && !state.pantry[p.name]) ? 1 : 0);
     sorted.forEach(pick=>{
       const perG = FOOD_DATABASE[pick.name];
       if(!perG) return;
       const kcal = Math.round(perG.kcal * pick.grams);
       const protein = Math.round(perG.protein * pick.grams);
       const fits = kcal <= remaining;
+      const have = haveAny && state.pantry[pick.name];
       const chip = document.createElement("button");
       chip.className = "food-chip" + (fits ? " fits" : "");
-      chip.innerHTML = `<span class="fc-name">${pick.name} · ${pick.grams}g${fits ? ` <span class="fits-tag">fits</span>` : ""}</span><span class="fc-kcal tabular">${kcal} kcal / ${protein}p</span>`;
+      chip.innerHTML = `<span class="fc-name">${pick.name} · ${pick.grams}g${fits ? ` <span class="fits-tag">fits</span>` : ""}${have ? ` <span class="have-tag">have it</span>` : ""}</span><span class="fc-kcal tabular">${kcal} kcal / ${protein}p</span>`;
       chip.addEventListener("click", ()=> logCuttingPick(pick.name, pick.grams));
       wrap.appendChild(chip);
     });
@@ -955,24 +1030,69 @@
     { name: "Loaded Egg White Scramble", tag: null,
       desc: "A huge-volume scramble that eats like way more food than its calorie count suggests.",
       ingredients: [["Egg White",300],["Spinach",60],["Mushrooms",70],["Bell Pepper",50],["Cheddar Cheese",20]] },
+    { name: "Veggie Egg & Black Bean Burrito", tag: null,
+      desc: "A hearty breakfast burrito built on whole eggs, black beans, and melted cheddar.",
+      ingredients: [["Egg (whole)",150],["Black Beans (cooked)",100],["Cheddar Cheese",20],["Flour Tortilla",50],["Tomato",50]] },
     { name: "Cottage Cheese & Berry Bowl", tag: null,
       desc: "Cottage cheese is one of the highest-protein-per-calorie foods around; berries and a touch of honey make it taste like dessert.",
       ingredients: [["Cottage Cheese (low-fat)",226],["Blueberries",75],["Honey",10]] },
     { name: "Greek Yogurt Berry Parfait", tag: null,
       desc: "Greek yogurt, fruit, and a little crunch -- simple, fast, and genuinely craveable.",
       ingredients: [["Greek Yogurt (nonfat)",250],["Strawberries",100],["Chia Seeds",10],["Honey",10]] },
+    { name: "Overnight Oats with Peanut Butter & Banana", tag: null,
+      desc: "No-cook fridge prep -- mix it the night before and it's ready the second you wake up.",
+      ingredients: [["Oats (dry)",50],["Skim Milk",150],["Peanut Butter",16],["Banana",100],["Honey",5]] },
+    { name: "Peanut Butter Banana Toast", tag: null,
+      desc: "A two-minute breakfast that still brings real protein and fiber to the table.",
+      ingredients: [["Whole Wheat Bread",56],["Peanut Butter",32],["Banana",100]] },
+    { name: "Peanut Butter Protein Oatmeal", tag: null,
+      desc: "Oats plus a scoop of whey and peanut butter -- dessert-like, and it'll actually keep you full for hours.",
+      ingredients: [["Oats (dry)",50],["Whey Protein Powder",30],["Banana",100],["Peanut Butter",16]] },
     { name: "Tuna Power Salad", tag: null,
       desc: "Canned tuna and chickpeas turn a plain salad into a serious protein meal.",
       ingredients: [["Tuna (canned, water)",140],["Mixed Green Salad (no dressing)",150],["Chickpeas (cooked)",100],["Olive Oil",8]] },
-    { name: "Shrimp & Zucchini Bowl", tag: null,
-      desc: "Shrimp over zucchini ribbons with tomato and parmesan -- the best protein-per-calorie ratio of the bunch.",
-      ingredients: [["Shrimp (cooked)",200],["Zucchini",250],["Tomato",100],["Parmesan",10]] },
     { name: "Turkey & Broccoli Rice Bowl", tag: null,
       desc: "A classic meal-prep bowl -- lean turkey, a mountain of broccoli, and just enough rice to feel like a real meal.",
       ingredients: [["Turkey Breast (cooked)",170],["Broccoli",150],["Bell Pepper",80],["Brown Rice (cooked)",120]] },
-    { name: "Peanut Butter Protein Oats", tag: null,
-      desc: "Oats plus a scoop of whey and peanut butter -- dessert-like, and it'll actually keep you full for hours.",
-      ingredients: [["Oats (dry)",50],["Whey Protein Powder",30],["Banana",100],["Peanut Butter",16]] },
+    { name: "Chicken & Veggie Stir-Fry Bowl", tag: null,
+      desc: "A fast skillet stir-fry -- chicken and three vegetables over rice, all cheap, all filling.",
+      ingredients: [["Chicken Breast (cooked)",170],["Broccoli",150],["Carrot",80],["Bell Pepper",80],["White Rice (cooked)",150],["Olive Oil",8]] },
+    { name: "Southwest Chicken & Black Bean Bowl", tag: null,
+      desc: "Chicken, black beans, corn, and rice with a little cheddar -- big, filling, and genuinely tasty.",
+      ingredients: [["Chicken Breast (cooked)",170],["Black Beans (cooked)",130],["Corn",80],["White Rice (cooked)",120],["Cheddar Cheese",20]] },
+    { name: "Turkey & Bean Burrito", tag: null,
+      desc: "A hand-held meal with lean turkey and beans doing the heavy lifting on protein.",
+      ingredients: [["Turkey Breast (cooked)",140],["Black Beans (cooked)",100],["Cheddar Cheese",20],["Flour Tortilla",50],["Lettuce",30],["Tomato",40]] },
+    { name: "Lentil & Brown Rice Power Bowl", tag: null,
+      desc: "An all-plant bowl -- lentils bring as much protein per calorie as most meats, for a fraction of the cost.",
+      ingredients: [["Lentils (cooked)",200],["Brown Rice (cooked)",120],["Spinach",60],["Onion",40],["Olive Oil",8]] },
+    { name: "Chickpea & Veggie Salad", tag: null,
+      desc: "A cold, no-cook lunch that still hits a real protein number thanks to the chickpeas.",
+      ingredients: [["Chickpeas (cooked)",150],["Cucumber",100],["Tomato",80],["Mixed Green Salad (no dressing)",80],["Onion",20],["Olive Oil",10]] },
+    { name: "Egg & Potato Hash", tag: null,
+      desc: "A diner-style hash -- whole eggs over pan-fried potato, onion, and bell pepper.",
+      ingredients: [["Egg (whole)",150],["Potato (baked)",200],["Onion",40],["Bell Pepper",50]] },
+    { name: "Tofu & Veggie Stir-Fry", tag: null,
+      desc: "A cheap, plant-based stir-fry that's just as filling as a meat-based one.",
+      ingredients: [["Tofu (firm)",200],["Broccoli",150],["Carrot",80],["Brown Rice (cooked)",120],["Olive Oil",8]] },
+    { name: "Ground Beef & Rice Skillet", tag: null,
+      desc: "One-pan comfort food -- lean ground beef with onion, pepper, and tomato over rice.",
+      ingredients: [["Ground Beef 93% (cooked)",170],["White Rice (cooked)",150],["Onion",50],["Bell Pepper",50],["Tomato",60]] },
+    { name: "Pinto Bean & Cheese Tacos", tag: null,
+      desc: "Street-taco style -- pinto beans and melted cheddar in corn tortillas with lettuce and tomato.",
+      ingredients: [["Pinto Beans (cooked)",150],["Corn Tortilla",100],["Cheddar Cheese",25],["Lettuce",30],["Tomato",40]] },
+    { name: "Chicken & Greens Salad", tag: null,
+      desc: "A big, simple salad built around a full chicken breast so it actually fills you up.",
+      ingredients: [["Chicken Breast (cooked)",170],["Mixed Green Salad (no dressing)",150],["Carrot",50],["Olive Oil",10]] },
+    { name: "Turkey & Egg White Breakfast Bowl", tag: null,
+      desc: "A savory, high-protein breakfast bowl built on turkey, egg whites, and sweet potato.",
+      ingredients: [["Turkey Breast (cooked)",100],["Egg White",150],["Spinach",50],["Sweet Potato (cooked)",150]] },
+    { name: "Kidney Bean & Beef Chili Bowl", tag: null,
+      desc: "A simple chili -- kidney beans stretch the ground beef further without losing the protein.",
+      ingredients: [["Kidney Beans (cooked)",200],["Ground Beef 93% (cooked)",100],["Tomato",100],["Onion",50],["Corn",60]] },
+    { name: "High-Protein Banana Oat Pancakes", tag: null,
+      desc: "Blended oats, egg, and banana cooked like pancakes -- tastes far better than the ingredient list suggests.",
+      ingredients: [["Oats (dry)",60],["Egg (whole)",100],["Banana",100],["Honey",10]] },
     { name: "Chocolate Peanut Butter Protein Smoothie", tag: "smoothie",
       desc: "Tastes like a milkshake. Whey, peanut butter, banana, and skim milk blended cold.",
       ingredients: [["Whey Protein Powder",30],["Peanut Butter",16],["Banana",100],["Skim Milk",250]] },
@@ -981,7 +1101,10 @@
       ingredients: [["Greek Yogurt (nonfat)",150],["Blueberries",100],["Strawberries",100],["Skim Milk",150],["Whey Protein Powder",15]] },
     { name: "Green Protein Smoothie", tag: "smoothie",
       desc: "You won't taste the spinach -- banana and chia seeds carry all the flavor.",
-      ingredients: [["Spinach",50],["Banana",100],["Whey Protein Powder",30],["Skim Milk",200],["Chia Seeds",10]] }
+      ingredients: [["Spinach",50],["Banana",100],["Whey Protein Powder",30],["Skim Milk",200],["Chia Seeds",10]] },
+    { name: "Peanut Butter Oat Protein Smoothie", tag: "smoothie",
+      desc: "Thicker and more filling than the others -- oats blend right in and add real staying power.",
+      ingredients: [["Whey Protein Powder",30],["Oats (dry)",30],["Peanut Butter",16],["Banana",100],["Skim Milk",200]] }
   ];
   function recipeTotals(recipe){
     const t = { kcal:0, protein:0, carbs:0, fat:0 };
@@ -999,28 +1122,45 @@
     renderFoodView();
     renderDashboard();
   }
+  const RECIPES_COLLAPSED_COUNT = 6;
+  let showAllRecipes = false; // resets to collapsed each time the app loads -- keeps the tab short by default
   function renderCuttingRecipes(){
     const wrap = document.getElementById("cuttingRecipesList");
     wrap.innerHTML = "";
     const remaining = remainingCalories();
-    const sorted = sortByCalorieFit(CUTTING_RECIPES, r=> recipeTotals(r).kcal);
-    sorted.forEach(recipe=>{
+    const haveAny = pantryHasAny();
+    const sorted = sortByCalorieFit(CUTTING_RECIPES,
+      r=> recipeTotals(r).kcal,
+      r=> haveAny ? missingIngredients(r).length : 0);
+    const visible = showAllRecipes ? sorted : sorted.slice(0, RECIPES_COLLAPSED_COUNT);
+    visible.forEach(recipe=>{
       const t = recipeTotals(recipe);
       const fits = t.kcal <= remaining;
+      const missing = missingIngredients(recipe);
       const ingText = recipe.ingredients.map(([name, grams])=> `${name} ${grams}g`).join(" + ");
       const smoothieTag = recipe.tag === "smoothie" ? `<span class="recipe-item-tag">smoothie</span>` : "";
       const fitsTag = fits ? `<span class="fits-tag">fits</span>` : "";
+      const haveTag = haveAny && !missing.length ? `<span class="have-tag">have it all</span>` : "";
+      const missingHint = haveAny && missing.length ? `<div class="recipe-item-missing">Missing from pantry: ${missing.join(", ")}</div>` : "";
       const item = document.createElement("div");
       item.className = "recipe-item";
       item.innerHTML = `
-        <div class="recipe-item-head"><span>${recipe.name}${smoothieTag}${fitsTag}</span><span class="recipe-item-macros tabular">${Math.round(t.kcal)} kcal · ${Math.round(t.protein)}P / ${Math.round(t.carbs)}C / ${Math.round(t.fat)}F</span></div>
+        <div class="recipe-item-head"><span>${recipe.name}${smoothieTag}${fitsTag}${haveTag}</span><span class="recipe-item-macros tabular">${Math.round(t.kcal)} kcal · ${Math.round(t.protein)}P / ${Math.round(t.carbs)}C / ${Math.round(t.fat)}F</span></div>
         <div class="recipe-item-desc">${recipe.desc}</div>
         <div class="recipe-item-ings">${ingText}</div>
+        ${missingHint}
         <button class="btn-primary small" data-log-recipe>Log it</button>
       `;
       item.querySelector("[data-log-recipe]").addEventListener("click", ()=> logCuttingRecipe(recipe));
       wrap.appendChild(item);
     });
+    const moreBtn = document.getElementById("showMoreRecipesBtn");
+    if(sorted.length > RECIPES_COLLAPSED_COUNT){
+      moreBtn.hidden = false;
+      moreBtn.textContent = showAllRecipes ? "Show fewer" : `Show all ${sorted.length} meal ideas`;
+    } else {
+      moreBtn.hidden = true;
+    }
   }
   // Splits into lowercase words and naively singularizes ("eggs"->"egg") so
   // plain substring matching doesn't miss close, natural phrasing.
@@ -1121,7 +1261,8 @@
       goals: {},        // { [exerciseName]: targetWeight }
       goalCelebrations: {}, // { [exerciseName]: lastCelebratedDate } — once-per-day "goal reached" toast
       steps: {},       // { [YYYY-MM-DD]: stepCount }
-      plannedSteps: {} // { [YYYY-MM-DD]: expected stepCount, used until real steps are logged }
+      plannedSteps: {}, // { [YYYY-MM-DD]: expected stepCount, used until real steps are logged }
+      pantry: {}       // { [foodName]: true } — staples Albert has on hand right now
     };
   }
   function loadState(){
@@ -1805,9 +1946,22 @@
       wrap.appendChild(chip);
     });
   }
+  let suggestionTab = "meals"; // "foods" | "meals" -- which panel of the Suggestions card is visible
+  function applySuggestionTab(){
+    document.querySelectorAll("#suggestionTypeToggle .seg-btn").forEach(btn=>{
+      btn.classList.toggle("active", btn.dataset.suggestionTab === suggestionTab);
+    });
+    const isMeals = suggestionTab === "meals";
+    document.getElementById("cuttingPicksChips").hidden = isMeals;
+    document.getElementById("cuttingRecipesList").hidden = !isMeals;
+    const moreBtn = document.getElementById("showMoreRecipesBtn");
+    if(!isMeals) moreBtn.hidden = true;
+    else renderCuttingRecipes(); // re-run so the show-more button's hidden state is correct for this tab
+  }
   function renderFoodView(){
     renderCuttingPicks();
     renderCuttingRecipes();
+    applySuggestionTab();
     renderQuickLogChips();
 
     const logWrap = document.getElementById("foodLogList");
@@ -2630,6 +2784,68 @@
     showToast("Targets updated");
     renderDashboard();
     renderFoodView();
+  });
+
+  // ---------- Suggestions tab toggle + show more ----------
+  document.querySelectorAll("#suggestionTypeToggle .seg-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      suggestionTab = btn.dataset.suggestionTab;
+      applySuggestionTab();
+    });
+  });
+  document.getElementById("showMoreRecipesBtn").addEventListener("click", ()=>{
+    showAllRecipes = !showAllRecipes;
+    renderCuttingRecipes();
+  });
+
+  // ---------- Pantry ----------
+  function renderPantryModal(){
+    const wrap = document.getElementById("pantryGroups");
+    wrap.innerHTML = "";
+    Object.keys(LOW_COST_STAPLES).forEach(group=>{
+      const section = document.createElement("div");
+      section.className = "pantry-group";
+      const chips = LOW_COST_STAPLES[group].map(name=>{
+        const on = !!state.pantry[name];
+        return `<button class="pantry-chip${on ? " on" : ""}" data-pantry-item="${name}" type="button">${name}</button>`;
+      }).join("");
+      section.innerHTML = `<div class="pantry-group-title">${group}</div><div class="pantry-chips">${chips}</div>`;
+      wrap.appendChild(section);
+    });
+    wrap.querySelectorAll("[data-pantry-item]").forEach(chip=>{
+      chip.addEventListener("click", ()=>{
+        const name = chip.dataset.pantryItem;
+        state.pantry[name] = !state.pantry[name];
+        if(!state.pantry[name]) delete state.pantry[name];
+        saveState();
+        chip.classList.toggle("on", !!state.pantry[name]);
+        renderFoodView();
+      });
+    });
+  }
+  document.getElementById("pantryBtn").addEventListener("click", ()=>{
+    renderPantryModal();
+    document.getElementById("pantryModal").hidden = false;
+  });
+  document.getElementById("pantryClose").addEventListener("click", ()=>{
+    document.getElementById("pantryModal").hidden = true;
+  });
+  document.getElementById("pantryModal").addEventListener("click", e=>{
+    if(e.target.id === "pantryModal") document.getElementById("pantryModal").hidden = true;
+  });
+  document.getElementById("pantrySelectAllBtn").addEventListener("click", ()=>{
+    STAPLE_LIST.forEach(name=> state.pantry[name] = true);
+    saveState();
+    renderPantryModal();
+    renderFoodView();
+    showToast("Pantry: all staples marked");
+  });
+  document.getElementById("pantryClearAllBtn").addEventListener("click", ()=>{
+    state.pantry = {};
+    saveState();
+    renderPantryModal();
+    renderFoodView();
+    showToast("Pantry cleared");
   });
 
   window.addEventListener("resize", ()=>{

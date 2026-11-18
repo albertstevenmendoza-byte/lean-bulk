@@ -450,6 +450,15 @@
     </div>
 
     <div class="dash-col-right">
+      <div class="card" id="cutPhaseCard" hidden>
+        <div class="card-header"><span>Cutting phase</span><span class="card-header-stat" id="cutDaysLeft"></span></div>
+        <div class="burn-grid">
+          <div class="burn-cell"><div class="burn-cell-label">Target today</div><div class="burn-cell-value tabular" id="cutCalTarget">–</div></div>
+          <div class="burn-cell"><div class="burn-cell-label">Weekly rate</div><div class="burn-cell-value tabular" id="cutWeeklyRate">–</div></div>
+        </div>
+        <div class="burn-note" id="cutNote"></div>
+      </div>
+
       <div class="card" id="burnCard">
         <div class="card-header"><span>Today's burn</span><span class="card-header-stat" id="burnStat"></span></div>
         <div class="burn-grid">
@@ -519,6 +528,11 @@
         <input type="text" id="builderMealName" class="field-input" placeholder="Meal name (optional)">
         <button class="btn-primary" id="builderLogBtn">Log this meal</button>
       </div>
+    </div>
+
+    <div class="card" id="cuttingPicksCard" hidden>
+      <div class="card-header"><span>Cutting picks</span><span class="card-header-stat">light · high protein · high volume</span></div>
+      <div class="chip-scroll" id="cuttingPicksChips"></div>
     </div>
 
     <div class="card" id="quickLogCard">
@@ -689,6 +703,21 @@
     </div>
     <div class="settings-divider"></div>
     <div class="settings-field">
+      <label>Cutting phase</label>
+      <p class="settings-hint">A short, protein-protected cut: moderate calorie deficit, high protein to spare muscle, trimmed accessory-lift volume while keeping your heavy compound sets at full intensity. Overrides the targets below while it's on.</p>
+      <button class="btn-secondary" id="cutModeBtn" style="width:100%;">Off</button>
+    </div>
+    <div class="settings-field" id="cutWeeksField">
+      <label>Length (weeks)</label>
+      <input type="number" inputmode="numeric" id="setCutWeeks" class="field-input tabular">
+    </div>
+    <div class="settings-field" id="cutDeficitField">
+      <label>Deficit below maintenance (%)</label>
+      <input type="number" inputmode="numeric" id="setCutDeficit" class="field-input tabular">
+    </div>
+    <div class="settings-hint" id="cutPreview"></div>
+    <div class="settings-divider"></div>
+    <div class="settings-field">
       <label>Calories</label>
       <input type="number" inputmode="numeric" id="setCalTarget" class="field-input tabular">
     </div>
@@ -842,6 +871,46 @@
     const [kcal, protein, carbs, fat] = FOOD_DB_100G[name];
     FOOD_DATABASE[name] = { kcal: kcal/100, protein: protein/100, carbs: carbs/100, fat: fat/100 };
   });
+  const CUTTING_PICKS = [
+    { name: "Egg White", grams: 150 },
+    { name: "Greek Yogurt (nonfat)", grams: 200 },
+    { name: "Chicken Breast (cooked)", grams: 170 },
+    { name: "Shrimp (cooked)", grams: 170 },
+    { name: "Tuna (canned, water)", grams: 140 },
+    { name: "Cottage Cheese (low-fat)", grams: 170 },
+    { name: "Tilapia (cooked)", grams: 170 },
+    { name: "Broccoli", grams: 200 },
+    { name: "Mixed Green Salad (no dressing)", grams: 200 },
+    { name: "Zucchini", grams: 200 },
+    { name: "Cucumber", grams: 200 },
+    { name: "Asparagus", grams: 200 }
+  ];
+  function logCuttingPick(name, grams){
+    const perG = FOOD_DATABASE[name];
+    if(!perG) return;
+    addMeal({ name: `${name} (${grams}g)`, kcal: perG.kcal*grams, protein: perG.protein*grams, carbs: perG.carbs*grams, fat: perG.fat*grams });
+    showToast(`Logged ${name}`);
+    renderFoodView();
+    renderDashboard();
+  }
+  function renderCuttingPicks(){
+    const card = document.getElementById("cuttingPicksCard");
+    card.hidden = !state.settings.cutMode;
+    if(!state.settings.cutMode) return;
+    const wrap = document.getElementById("cuttingPicksChips");
+    wrap.innerHTML = "";
+    CUTTING_PICKS.forEach(pick=>{
+      const perG = FOOD_DATABASE[pick.name];
+      if(!perG) return;
+      const kcal = Math.round(perG.kcal * pick.grams);
+      const protein = Math.round(perG.protein * pick.grams);
+      const chip = document.createElement("button");
+      chip.className = "food-chip";
+      chip.innerHTML = `<span class="fc-name">${pick.name} · ${pick.grams}g</span><span class="fc-kcal tabular">${kcal} kcal / ${protein}p</span>`;
+      chip.addEventListener("click", ()=> logCuttingPick(pick.name, pick.grams));
+      wrap.appendChild(chip);
+    });
+  }
   // Splits into lowercase words and naively singularizes ("eggs"->"egg") so
   // plain substring matching doesn't miss close, natural phrasing.
   function tokenize(s){
@@ -931,7 +1000,7 @@
   // ---------- State ----------
   function blankState(){
     return {
-      settings: { calorieTarget: 2450, proteinTarget: 180, carbTarget: 250, fatTarget: 70, soundEnabled: true, heightIn: 66, age: 33, sex: "male", surplus: 300, autoTarget: false },
+      settings: { calorieTarget: 2450, proteinTarget: 180, carbTarget: 250, fatTarget: 70, soundEnabled: true, heightIn: 66, age: 33, sex: "male", surplus: 300, autoTarget: false, cutMode: false, cutStartDate: null, cutStartWeightLbs: null, cutWeeks: 3, cutDeficitPct: 0.20 },
       weight: [],      // {date, lbs}
       meals: [],       // {id, date, name, kcal, protein, carbs, fat}
       favorites: [],   // {id, name, kcal, protein, carbs, fat}
@@ -1075,7 +1144,82 @@
     const total = base + walk + lift;
     return { rest, base, walk, lift, total, steps, usingPlan, miles: stepsToMiles(steps), suggested: total + (state.settings.surplus || 0) };
   }
+  // ---------- Cutting phase ----------
+  // A short, muscle-protective cut, following the natural-bodybuilding
+  // literature on dieting while resistance-trained:
+  //  - Protein ~1g per lb of bodyweight (toward the high end of Helms et
+  //    al. 2014's 2.3-3.1 g/kg lean-mass range) — the single biggest lever
+  //    for keeping muscle in a deficit.
+  //  - Fat floored at ~0.3g/lb for hormonal health (ISSN position stand).
+  //  - A ~20% deficit off estimated maintenance, which lands close to the
+  //    ~0.5-1% bodyweight loss per week that Garthe et al. 2011 found
+  //    preserved lean mass better than faster cuts in trained athletes.
+  //  - Carbs fill whatever's left, floored so training still has fuel.
+  function cutTargets(){
+    const lbs = latestWeightLbs() || state.settings.cutStartWeightLbs;
+    const b = computeBurn();
+    const maintenance = b ? b.total : state.settings.calorieTarget;
+    const deficitPct = state.settings.cutDeficitPct || 0.20;
+    const rest = lbs ? restingBurn(lbs) : null;
+    // Safety floor: never diet below resting metabolic rate (the standard
+    // lower bound for a short cut) or 1200 kcal, whichever is higher.
+    const floor = Math.max(rest ? Math.round(rest) : 0, 1200);
+    const proteinTarget = lbs ? Math.round(lbs * 1.0) : state.settings.proteinTarget;
+    const fatTarget = lbs ? Math.round(lbs * 0.35) : state.settings.fatTarget;
+    let calTarget = Math.max(Math.round(maintenance * (1 - deficitPct)), floor);
+    let carbTarget = Math.max(Math.round((calTarget - proteinTarget*4 - fatTarget*9) / 4), 75);
+    // Recompute calories from the floored macros so the ring and the macro
+    // bars always add up to the same number.
+    calTarget = proteinTarget*4 + carbTarget*4 + fatTarget*9;
+    return { calTarget, proteinTarget, carbTarget, fatTarget, maintenance, deficitPct, floor };
+  }
+  function cutStatus(){
+    if(!state.settings.cutMode || !state.settings.cutStartDate) return null;
+    const start = state.settings.cutStartDate;
+    const totalDays = Math.round((state.settings.cutWeeks || 3) * 7);
+    const daysElapsed = Math.round((new Date(todayISO()) - new Date(start)) / 864e5);
+    const daysLeft = Math.max(0, totalDays - daysElapsed);
+    const startLbs = state.settings.cutStartWeightLbs;
+    const nowLbs = latestWeightLbs();
+    let pctChange = null, weeklyRate = null;
+    if(startLbs && nowLbs && daysElapsed > 0){
+      pctChange = ((nowLbs - startLbs) / startLbs) * 100;
+      weeklyRate = pctChange / (daysElapsed / 7);
+    }
+    return { daysElapsed, daysLeft, totalDays, startLbs, nowLbs, pctChange, weeklyRate, ended: daysLeft <= 0 };
+  }
+  function effectiveMacroTargets(){
+    if(state.settings.cutMode){
+      const t = cutTargets();
+      return { protein: t.proteinTarget, carbs: t.carbTarget, fat: t.fatTarget };
+    }
+    return { protein: state.settings.proteinTarget, carbs: state.settings.carbTarget, fat: state.settings.fatTarget };
+  }
+  function renderCutCard(){
+    const card = document.getElementById("cutPhaseCard");
+    const status = cutStatus();
+    card.hidden = !status;
+    if(!status) return;
+    document.getElementById("cutDaysLeft").textContent = status.ended ? "Window ended" : `${status.daysLeft}d left`;
+    const t = cutTargets();
+    document.getElementById("cutCalTarget").textContent = `${t.calTarget.toLocaleString()} kcal`;
+    document.getElementById("cutWeeklyRate").textContent = status.weeklyRate !== null ? `${status.weeklyRate.toFixed(2)}%/wk` : "–";
+    const parts = [
+      `${t.proteinTarget}P / ${t.carbTarget}C / ${t.fatTarget}F`,
+      `~${Math.round(t.deficitPct*100)}% below your ${Math.round(t.maintenance).toLocaleString()} kcal estimated maintenance.`
+    ];
+    if(status.weeklyRate !== null){
+      if(status.weeklyRate > -0.2 && status.daysElapsed > 7){
+        parts.push("Barely moving on the scale — the deficit may need to be a touch larger.");
+      } else if(status.weeklyRate < -1.2){
+        parts.push("Losing faster than the ~0.5-1%/week pace research ties to better muscle retention — consider easing the deficit a bit.");
+      }
+    }
+    if(status.ended) parts.push(`Your ${status.totalDays}-day window is up — wrap it up or extend it in Settings.`);
+    document.getElementById("cutNote").textContent = parts.join(" ");
+  }
   function effectiveTarget(){
+    if(state.settings.cutMode) return cutTargets().calTarget;
     if(state.settings.autoTarget){
       const b = computeBurn();
       if(b) return Math.round(b.suggested);
@@ -1110,8 +1254,10 @@
     if(b.walk > 0) parts.push(`walking +${Math.round(b.walk)}`);
     if(b.lift > 0) parts.push(`lifting +${Math.round(b.lift)}`);
     noteEl.textContent = parts.join(", ") + `. Estimate only, so check it against your weight trend over a couple of weeks.`;
-    applyBtn.hidden = state.settings.autoTarget || Math.round(b.suggested) === Math.round(state.settings.calorieTarget);
-    if(state.settings.autoTarget){
+    applyBtn.hidden = state.settings.cutMode || state.settings.autoTarget || Math.round(b.suggested) === Math.round(state.settings.calorieTarget);
+    if(state.settings.cutMode){
+      headline.hidden = true;
+    } else if(state.settings.autoTarget){
       headline.hidden = false;
       headline.textContent = `You have ${Math.round(b.suggested).toLocaleString()} calories today${b.usingPlan ? ", based on your planned steps" : ""}.`;
     } else {
@@ -1139,10 +1285,12 @@
     remainEl.textContent = remaining >= 0 ? `${Math.round(remaining).toLocaleString()} kcal remaining` : `${Math.round(Math.abs(remaining)).toLocaleString()} kcal over`;
     remainEl.style.color = remaining >= 0 ? "var(--accent)" : "var(--danger)";
 
-    setMacroBar("protein", "protein", totals.protein, state.settings.proteinTarget);
-    setMacroBar("carbs", "carb", totals.carbs, state.settings.carbTarget);
-    setMacroBar("fat", "fat", totals.fat, state.settings.fatTarget);
+    const macroTargets = effectiveMacroTargets();
+    setMacroBar("protein", "protein", totals.protein, macroTargets.protein);
+    setMacroBar("carbs", "carb", totals.carbs, macroTargets.carbs);
+    setMacroBar("fat", "fat", totals.fat, macroTargets.fat);
 
+    renderCutCard();
     renderBurn();
     renderWeightChart("weightChart", "weightTrendStat");
     renderDashMealList(meals);
@@ -1547,6 +1695,7 @@
     });
   }
   function renderFoodView(){
+    renderCuttingPicks();
     renderQuickLogChips();
 
     const logWrap = document.getElementById("foodLogList");
@@ -1585,10 +1734,21 @@
   function getDay(dayId){ return PROGRAM.find(d=> d.id === dayId); }
   // Every exercise for a day: its program slots (with target sets/rep range)
   // plus any custom extras the user added, which log freely with no target.
+  // During a cut, recovery capacity drops with calories available, so we
+  // trim one set off higher-rep accessory/hypertrophy work (repRange[0] > 6)
+  // while leaving low-rep compound lifts at full volume — intensity on the
+  // big lifts is what actually protects strength and muscle in a deficit
+  // (Helms et al. 2014's natural-bodybuilding prep recommendations).
+  function cutAdjustedSets(sets, repRange){
+    if(!state.settings.cutMode) return sets;
+    const lowRep = repRange ? repRange[0] : null;
+    if(lowRep !== null && lowRep <= 6) return sets;
+    return Math.max(2, sets - 1);
+  }
   function getDayExercises(dayId){
     const day = getDay(dayId);
     const programExercises = day.exercises.map(ex=> ({
-      slotId: ex.id, name: state.overrides[ex.id] || ex.name, defaultName: ex.name, sets: ex.sets, repRange: ex.repRange
+      slotId: ex.id, name: state.overrides[ex.id] || ex.name, defaultName: ex.name, sets: cutAdjustedSets(ex.sets, ex.repRange), repRange: ex.repRange
     }));
     const extras = (state.extraExercises[dayId] || []).map(name=> ({ slotId:null, name, defaultName:null, sets:null, repRange:null }));
     return [...programExercises, ...extras];
@@ -2271,6 +2431,10 @@
     document.getElementById("setAge").value = state.settings.age;
     document.getElementById("setSurplus").value = state.settings.surplus;
     document.getElementById("setSexBtn").textContent = state.settings.sex === "female" ? "Female" : "Male";
+    document.getElementById("cutModeBtn").textContent = state.settings.cutMode ? "On" : "Off";
+    document.getElementById("setCutWeeks").value = state.settings.cutWeeks;
+    document.getElementById("setCutDeficit").value = Math.round(state.settings.cutDeficitPct * 100);
+    renderCutPreview();
     document.getElementById("settingsModal").hidden = false;
   });
   document.getElementById("soundToggleBtn").addEventListener("click", ()=>{
@@ -2278,6 +2442,28 @@
     saveState();
     document.getElementById("soundToggleBtn").textContent = state.settings.soundEnabled ? "On" : "Off";
     showToast(state.settings.soundEnabled ? "Sound on" : "Sound off");
+  });
+  function renderCutPreview(){
+    const el = document.getElementById("cutPreview");
+    if(!state.settings.cutMode){ el.textContent = ""; return; }
+    const t = cutTargets();
+    el.textContent = `Preview: ${t.calTarget.toLocaleString()} kcal · ${t.proteinTarget}P / ${t.carbTarget}C / ${t.fatTarget}F — recalculates daily from your logged weight and burn.`;
+  }
+  document.getElementById("cutModeBtn").addEventListener("click", ()=>{
+    state.settings.cutMode = !state.settings.cutMode;
+    if(state.settings.cutMode){
+      state.settings.cutStartDate = todayISO();
+      state.settings.cutStartWeightLbs = latestWeightLbs();
+    } else {
+      state.settings.cutStartDate = null;
+      state.settings.cutStartWeightLbs = null;
+    }
+    saveState();
+    document.getElementById("cutModeBtn").textContent = state.settings.cutMode ? "On" : "Off";
+    renderCutPreview();
+    showToast(state.settings.cutMode ? "Cutting phase started" : "Cutting phase ended");
+    renderDashboard();
+    renderFoodView();
   });
   document.getElementById("setSexBtn").addEventListener("click", ()=>{
     state.settings.sex = state.settings.sex === "female" ? "male" : "female";
@@ -2299,10 +2485,15 @@
     state.settings.age = parseFloat(document.getElementById("setAge").value) || state.settings.age;
     const surplusVal = parseFloat(document.getElementById("setSurplus").value);
     if(!isNaN(surplusVal)) state.settings.surplus = surplusVal;
+    const cutWeeksVal = parseFloat(document.getElementById("setCutWeeks").value);
+    if(!isNaN(cutWeeksVal) && cutWeeksVal > 0) state.settings.cutWeeks = cutWeeksVal;
+    const cutDeficitVal = parseFloat(document.getElementById("setCutDeficit").value);
+    if(!isNaN(cutDeficitVal)) state.settings.cutDeficitPct = Math.min(0.35, Math.max(0.05, cutDeficitVal/100));
     saveState();
     document.getElementById("settingsModal").hidden = true;
     showToast("Targets updated");
     renderDashboard();
+    renderFoodView();
   });
 
   window.addEventListener("resize", ()=>{
@@ -2394,7 +2585,7 @@
   enterSubmits(["smartGrams"], "smartLogNowBtn");
   enterSubmits(["smartFallbackKcal"], "smartFallbackLogBtn");
   enterSubmits(["builderMealName"], "builderLogBtn");
-  enterSubmits(["setCalTarget","setProteinTarget","setCarbTarget","setFatTarget","setHeightIn","setAge","setSurplus"], "settingsSaveBtn");
+  enterSubmits(["setCalTarget","setProteinTarget","setCarbTarget","setFatTarget","setHeightIn","setAge","setSurplus","setCutWeeks","setCutDeficit"], "settingsSaveBtn");
   enterSubmits(["stepsInput"], "stepsSaveBtn");
   enterSubmits(["plannedStepsInput"], "plannedStepsSaveBtn");
 

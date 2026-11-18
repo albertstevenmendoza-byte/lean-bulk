@@ -245,6 +245,7 @@
   .exercise-row:first-child{ border-top:none; padding-top:0; }
   .exercise-row-name{ flex:1; min-width:0; font-size:14.5px; font-weight:600; }
   .exercise-row-meta{ font-family: var(--font-mono); font-size:12px; color: var(--text-dim); white-space:nowrap; }
+  .cut-chip{ font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--accent); border:1px solid var(--accent); border-radius:5px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
   .chevron{ color: var(--muted); font-size:17px; }
   .add-exercise-row{ display:flex; gap:10px; margin-top:14px; }
   .add-exercise-row input{ flex:1; min-width:0; }
@@ -1748,7 +1749,7 @@
   function getDayExercises(dayId){
     const day = getDay(dayId);
     const programExercises = day.exercises.map(ex=> ({
-      slotId: ex.id, name: state.overrides[ex.id] || ex.name, defaultName: ex.name, sets: cutAdjustedSets(ex.sets, ex.repRange), repRange: ex.repRange
+      slotId: ex.id, name: state.overrides[ex.id] || ex.name, defaultName: ex.name, sets: cutAdjustedSets(ex.sets, ex.repRange), baseSets: ex.sets, repRange: ex.repRange
     }));
     const extras = (state.extraExercises[dayId] || []).map(name=> ({ slotId:null, name, defaultName:null, sets:null, repRange:null }));
     return [...programExercises, ...extras];
@@ -1756,6 +1757,8 @@
   let activeDayId = null;
   let currentExercise = null;
   let currentExerciseTarget = null;
+  let currentExerciseSets = null;
+  let currentExerciseBaseSets = null;
   let mixedDayExercises = null; // set when viewing an ad-hoc combination of two days instead of a single program day
   let mixedDayLabel = "";
 
@@ -1856,14 +1859,15 @@
       const today = getTodaySession(ex.name);
       const row = document.createElement("div");
       row.className = "exercise-row";
-      const target = ex.repRange ? `${ex.sets}×${ex.repRange[0]}-${ex.repRange[1]}` : null;
+      const cutTrim = (ex.baseSets && ex.baseSets !== ex.sets) ? ` (cut from ${ex.baseSets})` : "";
+      const target = ex.repRange ? `${ex.sets}×${ex.repRange[0]}-${ex.repRange[1]}${cutTrim}` : null;
       const status = today ? `${today.sets.length} set${today.sets.length===1?"":"s"} today` : (last ? `last: ${last.sets.length} set${last.sets.length===1?"":"s"}` : "no data");
       const meta = target ? `${target} · ${status}` : status;
       const swapBtn = ex.slotId ? `<button class="icon-btn swap-btn" aria-label="Swap exercise">⇄</button>` : "";
-      row.innerHTML = `<span class="exercise-row-name">${ex.name}</span><span class="exercise-row-meta tabular">${meta}</span>${swapBtn}<span class="chevron">›</span>`;
+      row.innerHTML = `<span class="exercise-row-name">${ex.name}${cutTrim ? ` <span class="cut-chip">cut</span>` : ""}</span><span class="exercise-row-meta tabular">${meta}</span>${swapBtn}<span class="chevron">›</span>`;
       row.addEventListener("click", (e)=>{
         if(e.target.closest(".swap-btn")) return;
-        openGymMode(ex.name, ex.repRange);
+        openGymMode(ex.name, ex.repRange, ex.sets, ex.baseSets);
       });
       if(ex.slotId){
         row.querySelector(".swap-btn").addEventListener("click", (e)=>{
@@ -1874,9 +1878,11 @@
       wrap.appendChild(row);
     });
   }
-  function openGymMode(name, repRange){
+  function openGymMode(name, repRange, sets, baseSets){
     currentExercise = name;
     currentExerciseTarget = repRange || null;
+    currentExerciseSets = sets || null;
+    currentExerciseBaseSets = baseSets || null;
     document.getElementById("dayDetailWrap").hidden = true;
     document.getElementById("gymModeWrap").hidden = false;
     document.getElementById("gymExerciseName").textContent = name;
@@ -1885,6 +1891,8 @@
   function closeGymMode(){
     currentExercise = null;
     currentExerciseTarget = null;
+    currentExerciseSets = null;
+    currentExerciseBaseSets = null;
     document.getElementById("dayDetailWrap").hidden = false;
     document.getElementById("gymModeWrap").hidden = true;
     renderDayDetail();
@@ -1997,14 +2005,31 @@
       <div class="goal-progress-text tabular">${progress.current !== null ? progress.current : "—"} / ${progress.goal} lbs${progress.reached ? " · reached 🎯" : ""}</div>
     `;
   }
+  function recentHoldWeight(name){
+    const logs = getExerciseLogs(name).filter(e=> e.sets.length && e.date !== todayISO()).slice(-3);
+    if(!logs.length) return null;
+    const tops = logs.map(e=> e.sets.reduce((m,s)=> Math.max(m, s.weight), 0)).filter(w=> w > 0);
+    if(!tops.length) return null;
+    const avg = tops.reduce((a,b)=> a+b, 0) / tops.length;
+    return Math.round(avg / 2.5) * 2.5;
+  }
   function renderGymMode(){
     const last = getLastLoggedSession(currentExercise);
     const lastCard = document.getElementById("gymLastSession");
-    const targetLine = currentExerciseTarget ? `<div class="gym-target tabular">Target: ${currentExerciseTarget[0]}-${currentExerciseTarget[1]} reps</div>` : "";
+    const cutTrimNote = (currentExerciseBaseSets && currentExerciseBaseSets !== currentExerciseSets) ? ` (cut from ${currentExerciseBaseSets})` : "";
+    const setsPrefix = currentExerciseSets ? `${currentExerciseSets}${cutTrimNote} sets × ` : "";
+    const targetLine = currentExerciseTarget ? `<div class="gym-target tabular">Target: ${setsPrefix}${currentExerciseTarget[0]}-${currentExerciseTarget[1]} reps</div>` : "";
+    let cutHoldLine = "";
+    if(state.settings.cutMode){
+      const hold = recentHoldWeight(currentExercise);
+      cutHoldLine = hold
+        ? `<div class="gym-target tabular" style="color:var(--accent);">Cutting target: hold ~${hold} lbs, matching your last few sessions — keeping your current loads protects strength and muscle better than chasing a new PR on a deficit.</div>`
+        : `<div class="gym-target tabular" style="color:var(--accent);">Cutting mode: aim to match, not beat, your recent weight here — prioritize hitting the full rep range.</div>`;
+    }
     if(last && last.sets.length){
-      lastCard.innerHTML = `<div class="card-header">Last session · ${last.date}</div><div class="gym-last-sets tabular">${last.sets.map(s=>`${s.weight}×${s.reps}`).join(" · ")}</div>${targetLine}`;
+      lastCard.innerHTML = `<div class="card-header">Last session · ${last.date}</div><div class="gym-last-sets tabular">${last.sets.map(s=>`${s.weight}×${s.reps}`).join(" · ")}</div>${targetLine}${cutHoldLine}`;
     } else {
-      lastCard.innerHTML = `<div class="card-header">Last session</div><div class="empty-hint">No previous data yet.</div>${targetLine}`;
+      lastCard.innerHTML = `<div class="card-header">Last session</div><div class="empty-hint">No previous data yet.</div>${targetLine}${cutHoldLine}`;
     }
     renderGymGoal();
     renderExerciseChart();

@@ -160,6 +160,8 @@
   .recipe-item-desc{ font-size:13px; color: var(--text-dim); margin:5px 0 7px; line-height:1.4; }
   .recipe-item-ings{ font-family: var(--font-mono); font-size:11px; color: var(--muted); margin-bottom:9px; }
   .recipe-item-tag{ display:inline-block; font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--carb); border:1px solid var(--carb); border-radius:5px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
+  .fits-tag{ display:inline-block; font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--good); border:1px solid var(--good); border-radius:5px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
+  .food-chip.fits{ border-color: var(--good); }
   .food-chip{
     flex:0 0 auto; background: var(--surface-2); border:1px solid var(--border); border-radius:999px;
     padding:10px 14px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:110px;
@@ -538,13 +540,13 @@
       </div>
     </div>
 
-    <div class="card" id="cuttingPicksCard" hidden>
-      <div class="card-header"><span>Cutting picks</span><span class="card-header-stat">light · high protein · high volume</span></div>
+    <div class="card" id="cuttingPicksCard">
+      <div class="card-header"><span id="cuttingPicksTitle">Suggested foods</span><span class="card-header-stat">fits what's left today, first</span></div>
       <div class="chip-scroll" id="cuttingPicksChips"></div>
     </div>
 
-    <div class="card" id="cuttingRecipesCard" hidden>
-      <div class="card-header"><span>Cutting recipes</span><span class="card-header-stat">filling · high protein</span></div>
+    <div class="card" id="cuttingRecipesCard">
+      <div class="card-header"><span id="cuttingRecipesTitle">Meal ideas</span><span class="card-header-stat">fits what's left today, first</span></div>
       <div id="cuttingRecipesList"></div>
     </div>
 
@@ -906,20 +908,38 @@
     renderFoodView();
     renderDashboard();
   }
+  // What's left of today's calorie target right now -- used to put foods
+  // and recipes that still fit ahead of ones that would blow past it.
+  function remainingCalories(){
+    return effectiveTarget() - dailyTotals(todaysMeals()).kcal;
+  }
+  // Sorts anything with a kcal cost so items that fit within what's left
+  // come first (biggest/most-filling fitting option first), then items
+  // that would go over, smallest overage first.
+  function sortByCalorieFit(items, kcalOf){
+    const remaining = remainingCalories();
+    return items.map((item,i)=> ({ item, kcal: kcalOf(item), i }))
+      .sort((a,b)=>{
+        const aFits = a.kcal <= remaining, bFits = b.kcal <= remaining;
+        if(aFits !== bFits) return aFits ? -1 : 1;
+        return aFits ? (b.kcal - a.kcal) : (a.kcal - b.kcal);
+      })
+      .map(x=> x.item);
+  }
   function renderCuttingPicks(){
-    const card = document.getElementById("cuttingPicksCard");
-    card.hidden = !state.settings.cutMode;
-    if(!state.settings.cutMode) return;
     const wrap = document.getElementById("cuttingPicksChips");
     wrap.innerHTML = "";
-    CUTTING_PICKS.forEach(pick=>{
+    const remaining = remainingCalories();
+    const sorted = sortByCalorieFit(CUTTING_PICKS, p=> (FOOD_DATABASE[p.name] ? FOOD_DATABASE[p.name].kcal * p.grams : 0));
+    sorted.forEach(pick=>{
       const perG = FOOD_DATABASE[pick.name];
       if(!perG) return;
       const kcal = Math.round(perG.kcal * pick.grams);
       const protein = Math.round(perG.protein * pick.grams);
+      const fits = kcal <= remaining;
       const chip = document.createElement("button");
-      chip.className = "food-chip";
-      chip.innerHTML = `<span class="fc-name">${pick.name} · ${pick.grams}g</span><span class="fc-kcal tabular">${kcal} kcal / ${protein}p</span>`;
+      chip.className = "food-chip" + (fits ? " fits" : "");
+      chip.innerHTML = `<span class="fc-name">${pick.name} · ${pick.grams}g${fits ? ` <span class="fits-tag">fits</span>` : ""}</span><span class="fc-kcal tabular">${kcal} kcal / ${protein}p</span>`;
       chip.addEventListener("click", ()=> logCuttingPick(pick.name, pick.grams));
       wrap.appendChild(chip);
     });
@@ -980,22 +1000,23 @@
     renderDashboard();
   }
   function renderCuttingRecipes(){
-    const card = document.getElementById("cuttingRecipesCard");
-    card.hidden = !state.settings.cutMode;
-    if(!state.settings.cutMode) return;
     const wrap = document.getElementById("cuttingRecipesList");
     wrap.innerHTML = "";
-    CUTTING_RECIPES.forEach((recipe, i)=>{
+    const remaining = remainingCalories();
+    const sorted = sortByCalorieFit(CUTTING_RECIPES, r=> recipeTotals(r).kcal);
+    sorted.forEach(recipe=>{
       const t = recipeTotals(recipe);
+      const fits = t.kcal <= remaining;
       const ingText = recipe.ingredients.map(([name, grams])=> `${name} ${grams}g`).join(" + ");
-      const tagHtml = recipe.tag === "smoothie" ? `<span class="recipe-item-tag">smoothie</span>` : "";
+      const smoothieTag = recipe.tag === "smoothie" ? `<span class="recipe-item-tag">smoothie</span>` : "";
+      const fitsTag = fits ? `<span class="fits-tag">fits</span>` : "";
       const item = document.createElement("div");
       item.className = "recipe-item";
       item.innerHTML = `
-        <div class="recipe-item-head"><span>${recipe.name}${tagHtml}</span><span class="recipe-item-macros tabular">${Math.round(t.kcal)} kcal · ${Math.round(t.protein)}P / ${Math.round(t.carbs)}C / ${Math.round(t.fat)}F</span></div>
+        <div class="recipe-item-head"><span>${recipe.name}${smoothieTag}${fitsTag}</span><span class="recipe-item-macros tabular">${Math.round(t.kcal)} kcal · ${Math.round(t.protein)}P / ${Math.round(t.carbs)}C / ${Math.round(t.fat)}F</span></div>
         <div class="recipe-item-desc">${recipe.desc}</div>
         <div class="recipe-item-ings">${ingText}</div>
-        <button class="btn-primary small" data-log-recipe="${i}">Log it</button>
+        <button class="btn-primary small" data-log-recipe>Log it</button>
       `;
       item.querySelector("[data-log-recipe]").addEventListener("click", ()=> logCuttingRecipe(recipe));
       wrap.appendChild(item);

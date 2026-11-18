@@ -153,6 +153,13 @@
 
   .food-chip-row{ display:inline-block; }
   .chip-scroll{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch; }
+  .recipe-item{ border-top:1px solid var(--border); padding:13px 0; }
+  .recipe-item:first-child{ border-top:none; padding-top:2px; }
+  .recipe-item-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-weight:700; font-size:14.5px; }
+  .recipe-item-macros{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-dim); white-space:nowrap; }
+  .recipe-item-desc{ font-size:13px; color: var(--text-dim); margin:5px 0 7px; line-height:1.4; }
+  .recipe-item-ings{ font-family: var(--font-mono); font-size:11px; color: var(--muted); margin-bottom:9px; }
+  .recipe-item-tag{ display:inline-block; font-family: var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--carb); border:1px solid var(--carb); border-radius:5px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
   .food-chip{
     flex:0 0 auto; background: var(--surface-2); border:1px solid var(--border); border-radius:999px;
     padding:10px 14px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:110px;
@@ -536,6 +543,11 @@
       <div class="chip-scroll" id="cuttingPicksChips"></div>
     </div>
 
+    <div class="card" id="cuttingRecipesCard" hidden>
+      <div class="card-header"><span>Cutting recipes</span><span class="card-header-stat">filling · high protein</span></div>
+      <div id="cuttingRecipesList"></div>
+    </div>
+
     <div class="card" id="quickLogCard">
       <div class="card-header">Quick log</div>
       <div class="chip-scroll" id="quickLogChips"></div>
@@ -910,6 +922,83 @@
       chip.innerHTML = `<span class="fc-name">${pick.name} · ${pick.grams}g</span><span class="fc-kcal tabular">${kcal} kcal / ${protein}p</span>`;
       chip.addEventListener("click", ()=> logCuttingPick(pick.name, pick.grams));
       wrap.appendChild(chip);
+    });
+  }
+
+  // Real meal combinations, not just single ingredients -- built from
+  // pairings that consistently show up in high-protein / low-calorie meal
+  // prep write-ups (egg-white scrambles, cottage cheese bowls, tuna salads,
+  // protein smoothies). Macros are computed from the same per-gram food
+  // database the rest of the app uses, so the numbers stay accurate and
+  // consistent rather than hand-typed guesses.
+  const CUTTING_RECIPES = [
+    { name: "Loaded Egg White Scramble", tag: null,
+      desc: "A huge-volume scramble that eats like way more food than its calorie count suggests.",
+      ingredients: [["Egg White",300],["Spinach",60],["Mushrooms",70],["Bell Pepper",50],["Cheddar Cheese",20]] },
+    { name: "Cottage Cheese & Berry Bowl", tag: null,
+      desc: "Cottage cheese is one of the highest-protein-per-calorie foods around; berries and a touch of honey make it taste like dessert.",
+      ingredients: [["Cottage Cheese (low-fat)",226],["Blueberries",75],["Honey",10]] },
+    { name: "Greek Yogurt Berry Parfait", tag: null,
+      desc: "Greek yogurt, fruit, and a little crunch -- simple, fast, and genuinely craveable.",
+      ingredients: [["Greek Yogurt (nonfat)",250],["Strawberries",100],["Chia Seeds",10],["Honey",10]] },
+    { name: "Tuna Power Salad", tag: null,
+      desc: "Canned tuna and chickpeas turn a plain salad into a serious protein meal.",
+      ingredients: [["Tuna (canned, water)",140],["Mixed Green Salad (no dressing)",150],["Chickpeas (cooked)",100],["Olive Oil",8]] },
+    { name: "Shrimp & Zucchini Bowl", tag: null,
+      desc: "Shrimp over zucchini ribbons with tomato and parmesan -- the best protein-per-calorie ratio of the bunch.",
+      ingredients: [["Shrimp (cooked)",200],["Zucchini",250],["Tomato",100],["Parmesan",10]] },
+    { name: "Turkey & Broccoli Rice Bowl", tag: null,
+      desc: "A classic meal-prep bowl -- lean turkey, a mountain of broccoli, and just enough rice to feel like a real meal.",
+      ingredients: [["Turkey Breast (cooked)",170],["Broccoli",150],["Bell Pepper",80],["Brown Rice (cooked)",120]] },
+    { name: "Peanut Butter Protein Oats", tag: null,
+      desc: "Oats plus a scoop of whey and peanut butter -- dessert-like, and it'll actually keep you full for hours.",
+      ingredients: [["Oats (dry)",50],["Whey Protein Powder",30],["Banana",100],["Peanut Butter",16]] },
+    { name: "Chocolate Peanut Butter Protein Smoothie", tag: "smoothie",
+      desc: "Tastes like a milkshake. Whey, peanut butter, banana, and skim milk blended cold.",
+      ingredients: [["Whey Protein Powder",30],["Peanut Butter",16],["Banana",100],["Skim Milk",250]] },
+    { name: "Berry Greek Yogurt Smoothie", tag: "smoothie",
+      desc: "Lighter and fruitier than the chocolate one, with Greek yogurt adding extra protein on top of the whey.",
+      ingredients: [["Greek Yogurt (nonfat)",150],["Blueberries",100],["Strawberries",100],["Skim Milk",150],["Whey Protein Powder",15]] },
+    { name: "Green Protein Smoothie", tag: "smoothie",
+      desc: "You won't taste the spinach -- banana and chia seeds carry all the flavor.",
+      ingredients: [["Spinach",50],["Banana",100],["Whey Protein Powder",30],["Skim Milk",200],["Chia Seeds",10]] }
+  ];
+  function recipeTotals(recipe){
+    const t = { kcal:0, protein:0, carbs:0, fat:0 };
+    recipe.ingredients.forEach(([name, grams])=>{
+      const perG = FOOD_DATABASE[name];
+      if(!perG) return;
+      t.kcal += perG.kcal*grams; t.protein += perG.protein*grams; t.carbs += perG.carbs*grams; t.fat += perG.fat*grams;
+    });
+    return t;
+  }
+  function logCuttingRecipe(recipe){
+    const t = recipeTotals(recipe);
+    addMeal({ name: recipe.name, kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat });
+    showToast(`Logged ${recipe.name}`);
+    renderFoodView();
+    renderDashboard();
+  }
+  function renderCuttingRecipes(){
+    const card = document.getElementById("cuttingRecipesCard");
+    card.hidden = !state.settings.cutMode;
+    if(!state.settings.cutMode) return;
+    const wrap = document.getElementById("cuttingRecipesList");
+    wrap.innerHTML = "";
+    CUTTING_RECIPES.forEach((recipe, i)=>{
+      const t = recipeTotals(recipe);
+      const ingText = recipe.ingredients.map(([name, grams])=> `${name} ${grams}g`).join(" + ");
+      const tagHtml = recipe.tag === "smoothie" ? `<span class="recipe-item-tag">smoothie</span>` : "";
+      const item = document.createElement("div");
+      item.className = "recipe-item";
+      item.innerHTML = `
+        <div class="recipe-item-head"><span>${recipe.name}${tagHtml}</span><span class="recipe-item-macros tabular">${Math.round(t.kcal)} kcal · ${Math.round(t.protein)}P / ${Math.round(t.carbs)}C / ${Math.round(t.fat)}F</span></div>
+        <div class="recipe-item-desc">${recipe.desc}</div>
+        <div class="recipe-item-ings">${ingText}</div>
+        <button class="btn-primary small" data-log-recipe="${i}">Log it</button>
+      `;
+      item.querySelector("[data-log-recipe]").addEventListener("click", ()=> logCuttingRecipe(recipe));
+      wrap.appendChild(item);
     });
   }
   // Splits into lowercase words and naively singularizes ("eggs"->"egg") so
@@ -1697,6 +1786,7 @@
   }
   function renderFoodView(){
     renderCuttingPicks();
+    renderCuttingRecipes();
     renderQuickLogChips();
 
     const logWrap = document.getElementById("foodLogList");

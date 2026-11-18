@@ -560,6 +560,10 @@
         </div>
       </div>
       <div class="card-header-stat" id="suggestionsSubtitle" style="margin:-8px 0 12px;">fits what's left today, first</div>
+      <div class="seg-toggle" id="suggestionPhaseToggle">
+        <button class="seg-btn" data-suggestion-phase="cut" type="button">Cutting</button>
+        <button class="seg-btn" data-suggestion-phase="bulk" type="button">Bulking</button>
+      </div>
       <div class="seg-toggle" id="suggestionTypeToggle">
         <button class="seg-btn" data-suggestion-tab="foods" type="button">Foods</button>
         <button class="seg-btn active" data-suggestion-tab="meals" type="button">Meals</button>
@@ -892,8 +896,9 @@
     "Oats (dry)": [389, 17, 66, 7], "Quinoa (cooked)": [120, 4.4, 21, 1.9], "Pasta (cooked)": [131, 5, 25, 1.1],
     "White Bread": [265, 9, 49, 3.2], "Whole Wheat Bread": [247, 13, 41, 3.4], "Flour Tortilla": [310, 8, 51, 7.5],
     "Corn Tortilla": [218, 5.7, 44, 2.9], "Bagel": [257, 10, 50, 1.7], "Cream of Wheat (cooked)": [68, 1.9, 14, 0.3],
-    "Couscous (cooked)": [112, 3.8, 23, 0.2],
+    "Couscous (cooked)": [112, 3.8, 23, 0.2], "Sourdough Bread": [289, 11, 56, 1.5], "Granola": [450, 10, 65, 14],
     "Whole Milk": [61, 3.2, 4.8, 3.3], "Skim Milk": [34, 3.4, 5, 0.2], "Greek Yogurt (nonfat)": [59, 10, 3.6, 0.4],
+    "Almond Milk (unsweetened)": [15, 0.5, 0.5, 1.1], "Oat Milk": [50, 1, 7, 2],
     "Greek Yogurt (full fat)": [97, 9, 4, 5], "Cottage Cheese (low-fat)": [72, 12, 3, 1.4],
     "Cheddar Cheese": [402, 25, 1.3, 33], "Mozzarella": [280, 28, 2.2, 17], "Parmesan": [431, 38, 4.1, 29],
     "Cream Cheese": [342, 6, 4, 34], "Butter": [717, 0.9, 0.1, 81],
@@ -932,11 +937,13 @@
       "Black Beans (cooked)","Lentils (cooked)","Chickpeas (cooked)","Kidney Beans (cooked)",
       "Pinto Beans (cooked)","Peanut Butter","Whey Protein Powder"],
     "Carbs": ["White Rice (cooked)","Brown Rice (cooked)","Oats (dry)","Pasta (cooked)","White Bread",
-      "Whole Wheat Bread","Corn Tortilla","Flour Tortilla","Banana","Potato (baked)","Sweet Potato (cooked)","Honey"],
+      "Whole Wheat Bread","Sourdough Bread","Corn Tortilla","Flour Tortilla","Bagel","Granola","Banana",
+      "Potato (baked)","Sweet Potato (cooked)","Honey"],
     "Veggies & Fruit": ["Broccoli","Spinach","Carrot","Tomato","Bell Pepper","Cucumber","Lettuce","Onion",
       "Mushrooms","Zucchini","Green Beans","Cauliflower","Corn","Peas","Mixed Green Salad (no dressing)",
       "Apple","Orange","Blueberries","Strawberries","Grapes"],
-    "Dairy & Pantry": ["Whole Milk","Skim Milk","Cheddar Cheese","Butter","Olive Oil","Chia Seeds"]
+    "Dairy & Milk Alternatives": ["Whole Milk","Skim Milk","Almond Milk (unsweetened)","Oat Milk",
+      "Cheddar Cheese","Butter","Olive Oil","Chia Seeds"]
   };
   const STAPLE_LIST = Object.values(LOW_COST_STAPLES).flat();
   const CUTTING_PICKS = [
@@ -1002,7 +1009,7 @@
     wrap.innerHTML = "";
     const remaining = remainingCalories();
     const haveAny = pantryHasAny();
-    const sorted = sortByCalorieFit(CUTTING_PICKS,
+    const sorted = sortByCalorieFit(PICKS_BY_PHASE[mealPhaseTab],
       p=> (FOOD_DATABASE[p.name] ? FOOD_DATABASE[p.name].kcal * p.grams : 0),
       p=> (haveAny && !state.pantry[p.name]) ? 1 : 0);
     sorted.forEach(pick=>{
@@ -1104,8 +1111,93 @@
       ingredients: [["Spinach",50],["Banana",100],["Whey Protein Powder",30],["Skim Milk",200],["Chia Seeds",10]] },
     { name: "Peanut Butter Oat Protein Smoothie", tag: "smoothie",
       desc: "Thicker and more filling than the others -- oats blend right in and add real staying power.",
-      ingredients: [["Whey Protein Powder",30],["Oats (dry)",30],["Peanut Butter",16],["Banana",100],["Skim Milk",200]] }
+      ingredients: [["Whey Protein Powder",30],["Oats (dry)",30],["Peanut Butter",16],["Banana",100],["Skim Milk",200]] },
+    { name: "Almond Milk Berry Protein Smoothie", tag: "smoothie",
+      desc: "Almond milk has almost no calories of its own, so this is mostly protein and berries -- huge volume for very little cost.",
+      ingredients: [["Almond Milk (unsweetened)",300],["Whey Protein Powder",30],["Strawberries",100],["Chia Seeds",10]] }
   ];
+
+  // Bulking-phase single foods: the opposite design goal from the cutting
+  // picks above -- calorie-dense staples so hitting a surplus doesn't mean
+  // forcing down huge volumes of food, while still leaning on real protein
+  // sources rather than empty calories (a "lean bulk", not a dirty one).
+  const BULKING_PICKS = [
+    { name: "Peanut Butter", grams: 32 },
+    { name: "Whole Milk", grams: 400 },
+    { name: "Oats (dry)", grams: 100 },
+    { name: "Granola", grams: 80 },
+    { name: "White Rice (cooked)", grams: 300 },
+    { name: "Banana", grams: 200 },
+    { name: "Sourdough Bread", grams: 100 },
+    { name: "Honey", grams: 30 },
+    { name: "Ground Beef 85% (cooked)", grams: 200 },
+    { name: "Cheddar Cheese", grams: 50 },
+    { name: "Olive Oil", grams: 15 },
+    { name: "Potato (baked)", grams: 300 },
+    { name: "Whey Protein Powder", grams: 60 },
+    { name: "Oat Milk", grams: 300 }
+  ];
+  // Bulking-phase meal combinations -- bigger portions and denser
+  // carb/fat pairings than the cutting recipes, built from the same
+  // staple-only ingredient pool (plus sourdough bread and oat milk).
+  const BULKING_RECIPES = [
+    { name: "Sourdough PB & Honey Toast", tag: null,
+      desc: "A fast, dense breakfast -- toasted sourdough with peanut butter and a honey drizzle.",
+      ingredients: [["Sourdough Bread",100],["Peanut Butter",32],["Honey",15]] },
+    { name: "Oat Milk Peanut Butter Protein Shake", tag: "smoothie",
+      desc: "Oat milk is creamier and more calorie-dense than skim milk, which is exactly what a bulk shake wants.",
+      ingredients: [["Oat Milk",300],["Whey Protein Powder",30],["Peanut Butter",16],["Banana",100]] },
+    { name: "Granola Yogurt Power Bowl", tag: null,
+      desc: "Greek yogurt for protein, granola and banana for easy, cheap bulk calories.",
+      ingredients: [["Granola",80],["Greek Yogurt (nonfat)",200],["Banana",100],["Honey",10]] },
+    { name: "Loaded Oatmeal Bulk Bowl", tag: null,
+      desc: "Oats cooked in whole milk instead of water, with peanut butter and banana stirred in.",
+      ingredients: [["Oats (dry)",80],["Whole Milk",250],["Peanut Butter",20],["Banana",100],["Honey",10]] },
+    { name: "Ground Beef & Rice Bulk Bowl", tag: null,
+      desc: "85% beef brings more fat and calories per bite than the leaner 93% used in the cutting version.",
+      ingredients: [["Ground Beef 85% (cooked)",200],["White Rice (cooked)",250],["Cheddar Cheese",30],["Olive Oil",8]] },
+    { name: "Chicken, Rice & Olive Oil Bulk Bowl", tag: null,
+      desc: "A simple trick for adding calories without adding volume -- a real glug of olive oil over chicken and rice.",
+      ingredients: [["Chicken Breast (cooked)",200],["White Rice (cooked)",300],["Olive Oil",15],["Cheddar Cheese",20]] },
+    { name: "Peanut Butter Banana Mass Shake", tag: "smoothie",
+      desc: "A heavier version of the cutting smoothie -- whole milk and extra oats make this a real calorie bomb.",
+      ingredients: [["Whey Protein Powder",30],["Oats (dry)",50],["Peanut Butter",24],["Banana",150],["Whole Milk",300]] },
+    { name: "Turkey, Sweet Potato & Cheddar Bowl", tag: null,
+      desc: "Lean turkey keeps the protein high while sweet potato and cheddar bring the bulk calories.",
+      ingredients: [["Turkey Breast (cooked)",200],["Sweet Potato (cooked)",250],["Cheddar Cheese",30],["Olive Oil",10]] },
+    { name: "Egg & Sourdough Breakfast Plate", tag: null,
+      desc: "Three whole eggs, buttered sourdough, and melted cheddar -- a real breakfast built for a surplus.",
+      ingredients: [["Egg (whole)",200],["Sourdough Bread",100],["Butter",10],["Cheddar Cheese",20]] },
+    { name: "Pasta & Ground Beef Bulk Skillet", tag: null,
+      desc: "A big-portion pasta skillet -- easy to make in bulk and reheat all week.",
+      ingredients: [["Pasta (cooked)",300],["Ground Beef 93% (cooked)",170],["Tomato",100],["Cheddar Cheese",25],["Olive Oil",8]] },
+    { name: "Peanut Butter Oat Milk Overnight Oats", tag: null,
+      desc: "Oat milk makes this creamier and more calorie-dense than the cutting version made with skim milk.",
+      ingredients: [["Oats (dry)",80],["Oat Milk",250],["Peanut Butter",20],["Honey",10],["Banana",100]] },
+    { name: "Bean & Cheese Burrito Bulk Wrap", tag: null,
+      desc: "Two tortillas, beans, rice, and cheese -- a cheap, filling wrap built for a surplus.",
+      ingredients: [["Black Beans (cooked)",200],["Flour Tortilla",100],["Cheddar Cheese",40],["White Rice (cooked)",150]] },
+    { name: "Tuna, Pasta & Olive Oil Bowl", tag: null,
+      desc: "Canned tuna over pasta with a real pour of olive oil -- cheap, dense, and still protein-forward.",
+      ingredients: [["Tuna (canned, water)",170],["Pasta (cooked)",250],["Olive Oil",15],["Bell Pepper",60]] },
+    { name: "Chocolate Peanut Butter Mass Gainer Smoothie", tag: "smoothie",
+      desc: "The biggest smoothie on the list -- whole milk and oats on top of whey and peanut butter.",
+      ingredients: [["Whey Protein Powder",40],["Peanut Butter",32],["Banana",150],["Whole Milk",350],["Oats (dry)",40]] },
+    { name: "Lentil, Rice & Olive Oil Bulk Bowl", tag: null,
+      desc: "The plant-based bulk option -- lentils and rice with olive oil for easy extra calories.",
+      ingredients: [["Lentils (cooked)",250],["Brown Rice (cooked)",200],["Olive Oil",12],["Onion",40]] },
+    { name: "Turkey & Cheddar Sourdough Sandwich", tag: null,
+      desc: "A thick deli sandwich on sourdough -- easy to make ahead and eat on the way to the gym.",
+      ingredients: [["Deli Turkey",120],["Sourdough Bread",100],["Cheddar Cheese",30],["Lettuce",20]] },
+    { name: "Potato, Egg & Cheese Hash (Bulk)", tag: null,
+      desc: "The cutting hash's bigger, richer cousin -- more potato, more eggs, melted cheese, butter.",
+      ingredients: [["Potato (baked)",300],["Egg (whole)",150],["Cheddar Cheese",30],["Butter",10]] },
+    { name: "Banana Oat Pancakes with Honey (Bulk)", tag: null,
+      desc: "The same pancake batter as the cutting version, but a bigger batch finished with milk and honey.",
+      ingredients: [["Oats (dry)",90],["Egg (whole)",100],["Banana",150],["Honey",20],["Whole Milk",100]] }
+  ];
+  const PICKS_BY_PHASE = { cut: CUTTING_PICKS, bulk: BULKING_PICKS };
+  const RECIPES_BY_PHASE = { cut: CUTTING_RECIPES, bulk: BULKING_RECIPES };
   function recipeTotals(recipe){
     const t = { kcal:0, protein:0, carbs:0, fat:0 };
     recipe.ingredients.forEach(([name, grams])=>{
@@ -1129,7 +1221,7 @@
     wrap.innerHTML = "";
     const remaining = remainingCalories();
     const haveAny = pantryHasAny();
-    const sorted = sortByCalorieFit(CUTTING_RECIPES,
+    const sorted = sortByCalorieFit(RECIPES_BY_PHASE[mealPhaseTab],
       r=> recipeTotals(r).kcal,
       r=> haveAny ? missingIngredients(r).length : 0);
     const visible = showAllRecipes ? sorted : sorted.slice(0, RECIPES_COLLAPSED_COUNT);
@@ -1947,9 +2039,16 @@
     });
   }
   let suggestionTab = "meals"; // "foods" | "meals" -- which panel of the Suggestions card is visible
+  // Defaults to whatever the real Cutting phase setting is, but can be
+  // flipped independently so Albert can browse the other phase's ideas
+  // without actually switching his targets.
+  let mealPhaseTab = state.settings.cutMode ? "cut" : "bulk";
   function applySuggestionTab(){
     document.querySelectorAll("#suggestionTypeToggle .seg-btn").forEach(btn=>{
       btn.classList.toggle("active", btn.dataset.suggestionTab === suggestionTab);
+    });
+    document.querySelectorAll("#suggestionPhaseToggle .seg-btn").forEach(btn=>{
+      btn.classList.toggle("active", btn.dataset.suggestionPhase === mealPhaseTab);
     });
     const isMeals = suggestionTab === "meals";
     document.getElementById("cuttingPicksChips").hidden = isMeals;
@@ -2750,6 +2849,8 @@
     }
     saveState();
     document.getElementById("cutModeBtn").textContent = state.settings.cutMode ? "On" : "Off";
+    mealPhaseTab = state.settings.cutMode ? "cut" : "bulk";
+    showAllRecipes = false;
     renderCutPreview();
     showToast(state.settings.cutMode ? "Cutting phase started" : "Cutting phase ended");
     renderDashboard();
@@ -2791,6 +2892,13 @@
     btn.addEventListener("click", ()=>{
       suggestionTab = btn.dataset.suggestionTab;
       applySuggestionTab();
+    });
+  });
+  document.querySelectorAll("#suggestionPhaseToggle .seg-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      mealPhaseTab = btn.dataset.suggestionPhase;
+      showAllRecipes = false; // new phase, start collapsed again
+      renderFoodView();
     });
   });
   document.getElementById("showMoreRecipesBtn").addEventListener("click", ()=>{

@@ -150,6 +150,7 @@
   .meal-row-name{ display:block; font-size:14.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .meal-row-macros{ display:block; font-family: var(--font-mono); font-size:12px; color: var(--text-dim); margin-top:2px; }
   .meal-row .icon-btn{ width:30px; height:30px; font-size:16px; }
+  .meal-row .reset-pill{ height:30px; padding:0 10px; border-radius:15px; border:1px solid var(--good); color: var(--good); font-family: inherit; font-size:11.5px; font-weight:700; white-space:nowrap; }
 
   .food-chip-row{ display:inline-block; }
   .chip-scroll{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch; }
@@ -2081,7 +2082,7 @@
             <button class="icon-btn" data-fav-add="${m.id}" aria-label="Save as favorite">☆</button>
             <button class="icon-btn" data-half="${m.id}" aria-label="Only ate half of this">½</button>
             <button class="icon-btn" data-quarter="${m.id}" aria-label="Only ate a fourth of this">¼</button>
-            ${m.portion !== undefined && m.portion < 1 ? `<button class="icon-btn" data-reset-portion="${m.id}" aria-label="Reset to the full amount">↺</button>` : ""}
+            ${m.portion !== undefined && m.portion < 1 ? `<button class="reset-pill" data-reset-portion="${m.id}" aria-label="Back to the full 100% amount">100%</button>` : ""}
             <button class="icon-btn" data-del="${m.id}" aria-label="Delete">✕</button>
           </div>
         </div>

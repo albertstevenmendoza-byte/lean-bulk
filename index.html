@@ -145,11 +145,12 @@
   .swipe-delete-btn{ width:84px; background: var(--danger); color:#1a0a0a; font-weight:700; font-size:13px; }
   .swipe-content{ position:relative; background: var(--surface); touch-action: pan-y; transition: transform 0.22s cubic-bezier(.22,1,.36,1); }
   .swipe-content.swiping{ transition:none; }
-  .meal-row{ display:flex; align-items:center; gap:10px; padding:10px 14px; }
-  .meal-row-main{ flex:1; min-width:0; }
+  .meal-row{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:10px 14px; }
+  .meal-row-main{ flex:1 1 100%; min-width:0; }
+  .meal-row-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto; }
   .meal-row-name{ display:block; font-size:14.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .meal-row-macros{ display:block; font-family: var(--font-mono); font-size:12px; color: var(--text-dim); margin-top:2px; }
-  .meal-row .icon-btn{ width:30px; height:30px; font-size:16px; }
+  .meal-row .icon-btn{ width:auto; min-width:30px; height:30px; padding:0 6px; font-size:15px; }
   .meal-row .reset-pill{ height:30px; padding:0 10px; border-radius:15px; border:1px solid var(--good); color: var(--good); font-family: inherit; font-size:11.5px; font-weight:700; white-space:nowrap; }
 
   .food-chip-row{ display:inline-block; }
@@ -2079,11 +2080,15 @@
               <span class="meal-row-name">${m.name}</span>
               <span class="meal-row-macros tabular">${Math.round(m.kcal)} kcal · ${Math.round(m.protein)}P ${Math.round(m.carbs)}C ${Math.round(m.fat)}F</span>
             </div>
-            <button class="icon-btn" data-fav-add="${m.id}" aria-label="Save as favorite">☆</button>
-            <button class="icon-btn" data-half="${m.id}" aria-label="Only ate half of this">½</button>
-            <button class="icon-btn" data-quarter="${m.id}" aria-label="Only ate a fourth of this">¼</button>
-            ${m.portion !== undefined && m.portion < 1 ? `<button class="reset-pill" data-reset-portion="${m.id}" aria-label="Back to the full 100% amount">100%</button>` : ""}
-            <button class="icon-btn" data-del="${m.id}" aria-label="Delete">✕</button>
+            <div class="meal-row-actions">
+              <button class="icon-btn" data-fav-add="${m.id}" aria-label="Save as favorite">☆</button>
+              <button class="icon-btn" data-half="${m.id}" aria-label="Scale down to half of what's logged">½</button>
+              <button class="icon-btn" data-quarter="${m.id}" aria-label="Scale down to a fourth of what's logged">¼</button>
+              <button class="icon-btn" data-double="${m.id}" aria-label="Scale up to double what's logged">2×</button>
+              <button class="icon-btn" data-quadruple="${m.id}" aria-label="Scale up to four times what's logged">4×</button>
+              ${m.portion !== undefined && m.portion !== 1 ? `<button class="reset-pill" data-reset-portion="${m.id}" aria-label="Back to the original 100% amount">100%</button>` : ""}
+              <button class="icon-btn" data-del="${m.id}" aria-label="Delete">✕</button>
+            </div>
           </div>
         </div>
       `;
@@ -2637,20 +2642,25 @@
     if(halfBtn){ scaleMealPortion(halfBtn.dataset.half, 0.5); return; }
     const quarterBtn = e.target.closest("[data-quarter]");
     if(quarterBtn){ scaleMealPortion(quarterBtn.dataset.quarter, 0.25); return; }
+    const doubleBtn = e.target.closest("[data-double]");
+    if(doubleBtn){ scaleMealPortion(doubleBtn.dataset.double, 2); return; }
+    const quadBtn = e.target.closest("[data-quadruple]");
+    if(quadBtn){ scaleMealPortion(quadBtn.dataset.quadruple, 4); return; }
     const resetBtn = e.target.closest("[data-reset-portion]");
     if(resetBtn){ resetMealPortion(resetBtn.dataset.resetPortion); return; }
     const delBtn = e.target.closest("[data-del]");
     if(delBtn) deleteMealWithUndo(delBtn.dataset.del);
   });
-  // Scales an already-logged meal down by the given factor (0.5 or 0.25),
-  // for when less than the full thing actually got eaten. Applies to
-  // whatever is currently logged -- tapping half twice lands on a
-  // quarter, same as tapping quarter once -- and relabels the entry with
-  // the running percentage actually eaten so the log stays honest.
+  // Scales an already-logged meal by the given factor -- down (0.5, 0.25)
+  // for when less got eaten than logged, or up (2, 4) for when more did
+  // (e.g. a reduced portion turned out to be an underestimate). Applies
+  // to whatever is currently logged, so taps stack: half then double
+  // lands back at the original. Relabels the entry with the running
+  // percentage of the original logged amount so the log stays honest.
   // The true original amount is captured once, the first time a meal is
-  // ever scaled, and never touched again -- that's what lets "Reset to
-  // full" (the ↺ button) undo any number of half/quarter taps at once,
-  // not just the single most recent one like the toast's Undo does.
+  // ever scaled, and never touched again -- that's what lets "100%"
+  // restore the exact original from ANY current amount, up or down, in
+  // one tap, not just undo the single most recent change.
   function scaleMealPortion(id, factor){
     const meal = state.meals.find(m=> m.id === id);
     if(!meal) return;
@@ -2662,7 +2672,7 @@
     meal.portion = (meal.portion === undefined ? 1 : meal.portion) * factor;
     meal.kcal *= factor; meal.protein *= factor; meal.carbs *= factor; meal.fat *= factor;
     const pct = Math.round(meal.portion * 100);
-    meal.name = pct >= 100 ? meal.baseName : `${meal.baseName} (${pct}% eaten)`;
+    meal.name = pct === 100 ? meal.baseName : `${meal.baseName} (${pct}%)`;
     saveState();
     renderFoodView();
     renderDashboard();

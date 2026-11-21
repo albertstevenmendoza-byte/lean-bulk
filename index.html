@@ -2081,6 +2081,7 @@
             <button class="icon-btn" data-fav-add="${m.id}" aria-label="Save as favorite">☆</button>
             <button class="icon-btn" data-half="${m.id}" aria-label="Only ate half of this">½</button>
             <button class="icon-btn" data-quarter="${m.id}" aria-label="Only ate a fourth of this">¼</button>
+            ${m.portion !== undefined && m.portion < 1 ? `<button class="icon-btn" data-reset-portion="${m.id}" aria-label="Reset to the full amount">↺</button>` : ""}
             <button class="icon-btn" data-del="${m.id}" aria-label="Delete">✕</button>
           </div>
         </div>
@@ -2635,6 +2636,8 @@
     if(halfBtn){ scaleMealPortion(halfBtn.dataset.half, 0.5); return; }
     const quarterBtn = e.target.closest("[data-quarter]");
     if(quarterBtn){ scaleMealPortion(quarterBtn.dataset.quarter, 0.25); return; }
+    const resetBtn = e.target.closest("[data-reset-portion]");
+    if(resetBtn){ resetMealPortion(resetBtn.dataset.resetPortion); return; }
     const delBtn = e.target.closest("[data-del]");
     if(delBtn) deleteMealWithUndo(delBtn.dataset.del);
   });
@@ -2643,11 +2646,18 @@
   // whatever is currently logged -- tapping half twice lands on a
   // quarter, same as tapping quarter once -- and relabels the entry with
   // the running percentage actually eaten so the log stays honest.
+  // The true original amount is captured once, the first time a meal is
+  // ever scaled, and never touched again -- that's what lets "Reset to
+  // full" (the ↺ button) undo any number of half/quarter taps at once,
+  // not just the single most recent one like the toast's Undo does.
   function scaleMealPortion(id, factor){
     const meal = state.meals.find(m=> m.id === id);
     if(!meal) return;
     const before = { ...meal };
-    if(meal.baseName === undefined) meal.baseName = meal.name;
+    if(meal.original === undefined){
+      meal.baseName = meal.name;
+      meal.original = { kcal: meal.kcal, protein: meal.protein, carbs: meal.carbs, fat: meal.fat };
+    }
     meal.portion = (meal.portion === undefined ? 1 : meal.portion) * factor;
     meal.kcal *= factor; meal.protein *= factor; meal.carbs *= factor; meal.fat *= factor;
     const pct = Math.round(meal.portion * 100);
@@ -2658,12 +2668,26 @@
     showUndoToast(`Scaled to ${pct}% -- ${Math.round(meal.kcal)} kcal`, ()=>{
       // delete first so a first-ever scale (no prior portion/baseName)
       // reverts cleanly instead of leaving stale fields behind
-      delete meal.portion; delete meal.baseName;
+      delete meal.portion; delete meal.baseName; delete meal.original;
       Object.assign(meal, before);
       saveState();
       renderFoodView();
       renderDashboard();
     });
+  }
+  // Always available on any scaled-down row (not just within the toast's
+  // few-second undo window) -- restores the exact original logged amount
+  // no matter how many half/quarter taps happened since.
+  function resetMealPortion(id){
+    const meal = state.meals.find(m=> m.id === id);
+    if(!meal || meal.original === undefined) return;
+    Object.assign(meal, meal.original);
+    meal.portion = 1;
+    meal.name = meal.baseName;
+    saveState();
+    renderFoodView();
+    renderDashboard();
+    showToast(`Reset to full -- ${Math.round(meal.kcal)} kcal`);
   }
   function deleteMealWithUndo(id){
     const idx = state.meals.findIndex(m=> m.id === id);

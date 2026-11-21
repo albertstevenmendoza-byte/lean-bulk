@@ -151,7 +151,7 @@
   .meal-row-name{ display:block; font-size:14.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .meal-row-macros{ display:block; font-family: var(--font-mono); font-size:12px; color: var(--text-dim); margin-top:2px; }
   .meal-row .icon-btn{ width:auto; min-width:30px; height:30px; padding:0 6px; font-size:15px; }
-  .portion-toggle{ display:flex; gap:2px; background: var(--surface-2); border-radius:8px; padding:2px; }
+  .portion-toggle{ display:flex; flex-wrap:wrap; gap:2px; background: var(--surface-2); border-radius:8px; padding:2px; }
   .portion-btn{ border:none; background:none; color: var(--text-dim); font-family: inherit; font-size:11.5px; font-weight:700; padding:6px 9px; border-radius:6px; white-space:nowrap; }
   .portion-btn.active{ background: var(--surface); color: var(--good); box-shadow: inset 0 0 0 1px var(--good); }
 
@@ -2087,7 +2087,7 @@
               <div class="portion-toggle">
                 ${(()=>{
                   const current = m.portion === undefined ? 1 : m.portion;
-                  return [[0.25,"¼"],[0.5,"½"],[0.75,"¾"],[1,"Full"]].map(([frac,label])=>
+                  return [[0.25,"25%"],[0.5,"50%"],[0.75,"75%"],[1,"100%"],[1.5,"150%"],[2,"200%"]].map(([frac,label])=>
                     `<button class="portion-btn${Math.abs(current-frac)<0.001 ? " active" : ""}" data-portion="${frac}" data-portion-id="${m.id}">${label}</button>`
                   ).join("");
                 })()}
@@ -2648,12 +2648,13 @@
     const delBtn = e.target.closest("[data-del]");
     if(delBtn) deleteMealWithUndo(delBtn.dataset.del);
   });
-  // Sets an already-logged meal to an exact fraction (¼, ½, ¾, Full) of
-  // what was ORIGINALLY logged -- always absolute, never relative to
-  // whatever it's currently at. That's what makes it work as both a
-  // decrease (Full -> ¼ if you barely touched it) and an increase (¼ ->
-  // ½ if you ate more than you first thought), from any starting point,
-  // in one tap -- no compounding, no getting stuck.
+  // Sets an already-logged meal to an exact percentage (25/50/75/100/
+  // 150/200%) of what was ORIGINALLY logged -- always absolute, never
+  // relative to whatever it's currently at. That's what makes it work as
+  // both a decrease (100% -> 25% if you barely touched it) and an
+  // increase from ANY starting point in one tap, including past 100% for
+  // seconds or a bigger-than-planned portion -- no compounding, no
+  // getting stuck below where you started.
   // The true original amount is captured once, the first time a meal is
   // ever adjusted, and every later tap recomputes from that same
   // original, so the numbers stay exact no matter how many taps happen.

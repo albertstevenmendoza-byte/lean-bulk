@@ -144,6 +144,9 @@
   .weekly-status.missed{ color: var(--accent); }
   .weekly-footer{ margin-top:14px; }
   .resting-chip{ color: #e67e22; border-color: #e67e22; }
+  .swap-options{ display:flex; flex-direction:column; gap:8px; margin:4px 0 16px; }
+  .swap-option-btn{ text-align:left; padding:11px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text); font-size:14px; }
+  .swap-option-btn.active{ border-color: var(--accent); background: var(--surface-2); font-weight:700; }
   .recovery-msg{ font-size:14px; line-height:1.5; color: var(--text); padding: 4px 2px 18px; }
 
   .chart-canvas{ width:100%; height:120px; display:block; }
@@ -317,6 +320,7 @@
   .rest-timer-card{ text-align:center; }
   .rest-timer-display{ font-family: var(--font-mono); font-size:44px; font-weight:700; margin-bottom:16px; }
   .rest-timer-controls{ display:flex; align-items:center; justify-content:center; gap:10px; }
+  .rest-timer-hint{ font-size:12.5px; color: var(--muted); margin:-8px 0 14px; }
   .rest-timer-controls .btn-primary{ width:auto; flex:1; max-width:140px; }
 
   /* ---------- Weight view ---------- */
@@ -674,6 +678,7 @@
 
       <div class="card rest-timer-card">
         <div class="rest-timer-display tabular" id="restTimerDisplay">1:30</div>
+        <div class="rest-timer-hint" id="restTimerHint"></div>
         <div class="rest-timer-controls">
           <button class="btn-secondary" id="restMinusBtn">−15s</button>
           <button class="btn-primary" id="restStartBtn">Start</button>
@@ -883,10 +888,13 @@
     </div>
     <div class="settings-field">
       <label id="swapDefaultLabel"></label>
-      <input type="text" id="swapInput" class="field-input" placeholder="Replacement exercise name">
     </div>
-    <button class="btn-primary" id="swapSaveBtn">Save</button>
-    <button class="btn-secondary" id="swapResetBtn" style="width:100%; margin-top:10px;">Reset to default</button>
+    <div id="swapOptionsList" class="swap-options"></div>
+    <div class="settings-field">
+      <label>Or type your own</label>
+      <input type="text" id="swapInput" class="field-input" placeholder="Custom exercise name">
+    </div>
+    <button class="btn-primary" id="swapSaveBtn">Save custom name</button>
   </div>
 </div>
 
@@ -1323,48 +1331,48 @@
   // upper chest, traps) without overlapping the power days' heavy singles.
   const PROGRAM = [
     { id: "upper-power", name: "Upper Power", exercises: [
-      { id: "up-bench", name: "Incline Barbell Press", sets: 4, repRange: [3,5], muscle: "chest" },
-      { id: "up-row", name: "Supinated Barbell Row", sets: 4, repRange: [3,5], muscle: "back" },
-      { id: "up-ohp", name: "Machine Shoulder Press", sets: 3, repRange: [5,6], muscle: "shoulders" },
-      { id: "up-pullup", name: "Neutral-Grip Pull-Up", sets: 3, repRange: [5,6], muscle: "back" },
-      { id: "up-tricep", name: "Dip", sets: 3, repRange: [6,8], muscle: "triceps" },
-      { id: "up-curl", name: "Preacher Curl", sets: 2, repRange: [6,8], muscle: "biceps" },
-      { id: "up-lateral", name: "Lateral Raise", sets: 4, repRange: [12,15], muscle: "shoulders" },
-      { id: "up-shrug", name: "Shrugs", sets: 3, repRange: [10,15], muscle: "traps" }
+      { id: "up-bench", name: "Incline Barbell Press", sets: 4, repRange: [3,5], muscle: "chest", restSeconds: 180 },
+      { id: "up-row", name: "Supinated Barbell Row", sets: 4, repRange: [3,5], muscle: "back", restSeconds: 180 },
+      { id: "up-ohp", name: "Machine Shoulder Press", sets: 3, repRange: [5,6], muscle: "shoulders", restSeconds: 180 },
+      { id: "up-pullup", name: "Neutral-Grip Pull-Up", sets: 3, repRange: [5,6], muscle: "back", restSeconds: 180 },
+      { id: "up-tricep", name: "Dip", sets: 3, repRange: [6,8], muscle: "triceps", restSeconds: 90 },
+      { id: "up-curl", name: "Preacher Curl", sets: 2, repRange: [6,8], muscle: "biceps", restSeconds: 60 },
+      { id: "up-lateral", name: "Cable Lateral Raise", sets: 4, repRange: [12,15], muscle: "shoulders", restSeconds: 60 },
+      { id: "up-shrug", name: "Shrugs", sets: 3, repRange: [10,15], muscle: "traps", restSeconds: 60 }
     ]},
     { id: "lower-power", name: "Lower Power", exercises: [
-      { id: "lp-squat", name: "Leg Press", sets: 4, repRange: [3,5], muscle: "quads" },
-      { id: "lp-rdl", name: "Conventional Deadlift", sets: 3, repRange: [4,6], muscle: "hamstrings" },
-      { id: "lp-legpress", name: "Belt Squat", sets: 3, repRange: [6,8], muscle: "quads" },
-      { id: "lp-calf", name: "Leg Press Calf Raise", sets: 4, repRange: [6,8], muscle: "calves" },
-      { id: "lp-crunch", name: "Cable Crunch", sets: 4, repRange: [12,15], muscle: "abs" }
+      { id: "lp-squat", name: "Leg Press", sets: 4, repRange: [3,5], muscle: "quads", restSeconds: 180 },
+      { id: "lp-rdl", name: "Romanian Deadlift", sets: 3, repRange: [4,6], muscle: "hamstrings", restSeconds: 180 },
+      { id: "lp-legpress", name: "Belt Squat", sets: 3, repRange: [6,8], muscle: "quads", restSeconds: 120 },
+      { id: "lp-calf", name: "Leg Press Calf Raise", sets: 4, repRange: [6,8], muscle: "calves", restSeconds: 60 },
+      { id: "lp-crunch", name: "Cable Crunch", sets: 4, repRange: [12,15], muscle: "abs", restSeconds: 60 }
     ]},
     { id: "push-hyper", name: "Push Hypertrophy", exercises: [
-      { id: "ph-inclinedb", name: "Incline DB Press", sets: 4, repRange: [8,12], muscle: "chest" },
-      { id: "ph-chestpress", name: "Flat Bench DB Press", sets: 3, repRange: [10,15], muscle: "chest" },
-      { id: "ph-shoulderpress", name: "Seated DB Shoulder Press", sets: 3, repRange: [8,12], muscle: "shoulders" },
-      { id: "ph-lateral", name: "Cable Lateral Raise", sets: 5, repRange: [12,15], muscle: "shoulders" },
-      { id: "ph-pushdown", name: "Reverse-Grip Pushdown", sets: 3, repRange: [10,15], muscle: "triceps" },
-      { id: "ph-ohtricep", name: "DB Overhead Extension", sets: 2, repRange: [10,15], muscle: "triceps" },
-      { id: "ph-abs", name: "Hanging Leg Raise", sets: 3, repRange: [8,12], muscle: "abs" }
+      { id: "ph-inclinedb", name: "Incline DB Press", sets: 4, repRange: [8,12], muscle: "chest", restSeconds: 120 },
+      { id: "ph-chestpress", name: "Flat Bench DB Press", sets: 3, repRange: [10,15], muscle: "chest", restSeconds: 90 },
+      { id: "ph-shoulderpress", name: "Seated DB Shoulder Press", sets: 3, repRange: [8,12], muscle: "shoulders", restSeconds: 120 },
+      { id: "ph-lateral", name: "Cable Lateral Raise", sets: 5, repRange: [12,15], muscle: "shoulders", restSeconds: 60 },
+      { id: "ph-pushdown", name: "Rope Pushdown", sets: 3, repRange: [10,15], muscle: "triceps", restSeconds: 60 },
+      { id: "ph-ohtricep", name: "Overhead Cable Triceps Extension", sets: 2, repRange: [10,15], muscle: "triceps", restSeconds: 60 },
+      { id: "ph-abs", name: "Hanging Leg Raise", sets: 3, repRange: [8,12], muscle: "abs", restSeconds: 60 }
     ]},
     { id: "pull-hyper", name: "Pull Hypertrophy", exercises: [
-      { id: "pl-lat", name: "Pull-Up", sets: 4, repRange: [8,12], muscle: "back" },
-      { id: "pl-pulldown", name: "Chin-Up", sets: 4, repRange: [10,12], muscle: "back" },
-      { id: "pl-row", name: "Chest-Supported Row", sets: 3, repRange: [10,12], muscle: "back" },
-      { id: "pl-facepull", name: "Shrugs", sets: 3, repRange: [12,15], muscle: "traps" },
-      { id: "pl-curl", name: "DB / Cable Curl", sets: 3, repRange: [10,12], muscle: "biceps" },
-      { id: "pl-hammer", name: "Rope Hammer Curl", sets: 2, repRange: [10,12], muscle: "biceps" },
-      { id: "pl-reardelt", name: "Rear Delt Fly", sets: 2, repRange: [12,15], muscle: "shoulders" }
+      { id: "pl-lat", name: "Pull-Up", sets: 4, repRange: [8,12], muscle: "back", restSeconds: 120 },
+      { id: "pl-pulldown", name: "Wide-Grip Lat Pulldown", sets: 4, repRange: [10,12], muscle: "back", restSeconds: 120 },
+      { id: "pl-row", name: "Chest-Supported Row", sets: 3, repRange: [10,12], muscle: "back", restSeconds: 120 },
+      { id: "pl-facepull", name: "Shrugs", sets: 3, repRange: [12,15], muscle: "traps", restSeconds: 60 },
+      { id: "pl-curl", name: "Bayesian Cable Curl", sets: 3, repRange: [10,12], muscle: "biceps", restSeconds: 60 },
+      { id: "pl-hammer", name: "Rope Hammer Curl", sets: 2, repRange: [10,12], muscle: "biceps", restSeconds: 60 },
+      { id: "pl-reardelt", name: "Reverse Pec Deck Fly", sets: 2, repRange: [12,15], muscle: "shoulders", restSeconds: 60 }
     ]},
     { id: "legs-hyper", name: "Legs Hypertrophy", exercises: [
-      { id: "lg-frontsquat", name: "Back Squat", sets: 3, repRange: [8,10], muscle: "quads" },
-      { id: "lg-legcurl", name: "Leg Curl", sets: 3, repRange: [10,12], muscle: "hamstrings" },
-      { id: "lg-lunge", name: "Step-Up", sets: 3, repRange: [10,12], muscle: "quads" },
-      { id: "lg-legext", name: "Leg Extension", sets: 2, repRange: [12,15], muscle: "quads" },
-      { id: "lg-calf", name: "Seated Calf Raise", sets: 3, repRange: [10,15], muscle: "calves" },
-      { id: "lg-lateral", name: "DB Lateral Raise", sets: 4, repRange: [12,15], muscle: "shoulders" },
-      { id: "lg-hangingleg", name: "Hanging Leg Raise", sets: 4, repRange: [10,15], muscle: "abs" }
+      { id: "lg-frontsquat", name: "Back Squat", sets: 3, repRange: [8,10], muscle: "quads", restSeconds: 120 },
+      { id: "lg-legcurl", name: "Seated Leg Curl", sets: 3, repRange: [10,12], muscle: "hamstrings", restSeconds: 60 },
+      { id: "lg-lunge", name: "Bulgarian Split Squat", sets: 3, repRange: [10,12], muscle: "quads", restSeconds: 90 },
+      { id: "lg-legext", name: "Leg Extension", sets: 2, repRange: [12,15], muscle: "quads", restSeconds: 60 },
+      { id: "lg-calf", name: "Seated Calf Raise", sets: 3, repRange: [10,15], muscle: "calves", restSeconds: 60 },
+      { id: "lg-lateral", name: "DB Lateral Raise", sets: 4, repRange: [12,15], muscle: "shoulders", restSeconds: 60 },
+      { id: "lg-hangingleg", name: "Hanging Leg Raise", sets: 4, repRange: [10,15], muscle: "abs", restSeconds: 60 }
     ]}
   ];
 
@@ -1379,6 +1387,53 @@
     chest: "Chest", back: "Back", shoulders: "Shoulders", triceps: "Triceps",
     biceps: "Biceps", traps: "Traps", quads: "Quads", hamstrings: "Hamstrings",
     calves: "Calves", abs: "Abs/core"
+  };
+
+  // Research-informed swap options per slot (3 each, same movement pattern
+  // / muscle as the default) — e.g. Barbend's rundown of Nippard/Tennyson's
+  // top picks per muscle, and the dumbbell-vs-cable lateral raise RCT
+  // (Larsen et al. 2024/25) showing both are comparably effective. Picking
+  // one of these just sets state.overrides[slotId] exactly like free text
+  // did before, so logged history for that slot's new name starts fresh.
+  const EXERCISE_ALTERNATIVES = {
+    "up-bench": ["Flat Barbell Bench Press", "Incline DB Press", "Smith Machine Incline Press"],
+    "up-row": ["Chest-Supported T-Bar Row", "Pendlay Row", "Seal Row"],
+    "up-ohp": ["Seated Barbell Overhead Press", "Seated DB Shoulder Press", "Landmine Press"],
+    "up-pullup": ["Wide-Grip Pull-Up", "Wide-Grip Lat Pulldown", "Chest-Supported Machine Pulldown"],
+    "up-tricep": ["Overhead Cable Triceps Extension", "Close-Grip Bench Press", "Rope Pushdown"],
+    "up-curl": ["Incline DB Curl", "Bayesian Cable Curl", "Spider Curl"],
+    "up-lateral": ["DB Lateral Raise", "Machine Lateral Raise", "Lean-Away Cable Lateral Raise"],
+    "up-shrug": ["DB Shrug", "Trap Bar Shrug", "Behind-the-Back Smith Machine Shrug"],
+
+    "lp-squat": ["Hack Squat", "Back Squat", "Smith Machine Squat"],
+    "lp-rdl": ["Conventional Deadlift", "Stiff-Leg Deadlift", "Trap Bar Deadlift"],
+    "lp-legpress": ["Leg Press", "Hack Squat", "Front Squat"],
+    "lp-calf": ["Standing Calf Raise", "Seated Calf Raise", "Smith Machine Calf Raise"],
+    "lp-crunch": ["Hanging Leg Raise", "Ab Wheel Rollout", "Weighted Decline Sit-Up"],
+
+    "ph-inclinedb": ["Incline Barbell Press", "Incline Smith Machine Press", "Incline Machine Press"],
+    "ph-chestpress": ["Flat Barbell Bench Press", "Machine Chest Press", "Cable Fly"],
+    "ph-shoulderpress": ["Machine Shoulder Press", "Arnold Press", "Landmine Press"],
+    "ph-lateral": ["DB Lateral Raise", "Machine Lateral Raise", "Lean-Away Cable Lateral Raise"],
+    "ph-pushdown": ["Rope Pushdown (straight bar)", "Reverse-Grip Pushdown", "Single-Arm Cable Pushdown"],
+    "ph-ohtricep": ["DB Overhead Extension", "EZ-Bar Skull Crusher", "Cable Kickback"],
+    "ph-abs": ["Cable Crunch", "Ab Wheel Rollout", "Weighted Decline Sit-Up"],
+
+    "pl-lat": ["Wide-Grip Lat Pulldown", "Neutral-Grip Pull-Up", "Straight-Arm Pulldown"],
+    "pl-pulldown": ["Chin-Up", "Close-Grip Lat Pulldown", "Neutral-Grip Pulldown"],
+    "pl-row": ["Seal Row", "Chest-Supported T-Bar Row", "Pendlay Row"],
+    "pl-facepull": ["DB Shrug", "Trap Bar Shrug", "Cable Shrug"],
+    "pl-curl": ["Incline DB Curl", "DB Curl", "Spider Curl"],
+    "pl-hammer": ["Cross-Body Hammer Curl", "Reverse-Grip EZ-Bar Curl", "Rope Hammer Curl"],
+    "pl-reardelt": ["Cable Rear Delt Fly", "Rear Delt Fly (machine)", "Face Pull"],
+
+    "lg-frontsquat": ["Hack Squat", "Smith Machine Squat (long partials)", "Front Squat"],
+    "lg-legcurl": ["Lying Leg Curl", "Nordic Curl", "Single-Leg Leg Curl"],
+    "lg-lunge": ["Walking Lunge", "Step-Up", "Reverse Lunge"],
+    "lg-legext": ["Single-Leg Leg Extension", "Sissy Squat", "Hack Squat"],
+    "lg-calf": ["Standing Calf Raise", "Leg Press Calf Raise", "Smith Machine Calf Raise"],
+    "lg-lateral": ["Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Cable Lateral Raise"],
+    "lg-hangingleg": ["Cable Crunch", "Ab Wheel Rollout", "Weighted Decline Sit-Up"]
   };
 
   const todayISO = () => {
@@ -2174,6 +2229,23 @@
     }
     return null;
   }
+  // Research-tiered default rest periods per slot (set on the program
+  // exercises themselves): ~3min for near-max low-rep compounds (full
+  // ATP-PCr recovery; Schoenfeld et al. 2016, PMID 26605807, found 3min
+  // rest improved both strength AND hypertrophy over 1min on compound
+  // lifts), ~2min for moderate-rep multi-joint hypertrophy work, and
+  // 60-90s for single-joint isolation/accessory work, which tolerates
+  // shorter rest without blunting growth. Swapping an exercise keeps its
+  // slot's tier (the slot's role in the program doesn't change), and a
+  // free-text custom exercise with no slot falls back to the standard 90s.
+  function getExerciseRestSeconds(exerciseName){
+    for(const day of PROGRAM){
+      for(const ex of day.exercises){
+        if((state.overrides[ex.id] || ex.name) === exerciseName) return ex.restSeconds || 90;
+      }
+    }
+    return 90;
+  }
   // Finds the most recent set timestamp logged for ANY exercise sharing the
   // given muscle, looking only at entries from before today (today's own
   // session never blocks itself, even across several exercises for the same
@@ -2432,6 +2504,10 @@
     currentExerciseTarget = repRange || null;
     currentExerciseSets = sets || null;
     currentExerciseBaseSets = baseSets || null;
+    // Default the rest timer to this exercise's own optimal rest period,
+    // but only when nothing is actively counting down — never cut short a
+    // rest period already in progress just because you switched exercises.
+    if(!loadRestTimer()) currentRestDuration = getExerciseRestSeconds(name);
     document.getElementById("dayDetailWrap").hidden = true;
     document.getElementById("gymModeWrap").hidden = false;
     document.getElementById("gymExerciseName").textContent = name;
@@ -2583,6 +2659,7 @@
     renderGymGoal();
     renderExerciseChart();
     updatePlateCalcDisplay();
+    renderRestTimer();
 
     const today = getTodaySession(currentExercise);
     const setsList = document.getElementById("gymSetsList");
@@ -2716,6 +2793,13 @@
     const t = loadRestTimer();
     const display = document.getElementById("restTimerDisplay");
     const startBtn = document.getElementById("restStartBtn");
+    const hint = document.getElementById("restTimerHint");
+    if(hint && currentExercise){
+      const suggested = getExerciseRestSeconds(currentExercise);
+      hint.textContent = currentRestDuration === suggested
+        ? `Suggested rest for this exercise: ${fmtTime(suggested)}`
+        : `Adjusted — suggested for this exercise is ${fmtTime(suggested)}`;
+    }
     if(!t){
       display.textContent = fmtTime(currentRestDuration);
       startBtn.textContent = "Start";
@@ -3281,10 +3365,29 @@
 
   // ---------- Exercise swap ----------
   let swapSlotId = null;
+  function pickSwapOption(slotId, defaultName, opt){
+    if(opt === defaultName) delete state.overrides[slotId];
+    else state.overrides[slotId] = opt;
+    saveState();
+    document.getElementById("swapModal").hidden = true;
+    renderDayDetail();
+    showToast(opt === defaultName ? "Reset to default" : `Swapped to ${opt}`);
+  }
   function openSwapModal(slotId, defaultName, currentName){
     swapSlotId = slotId;
     document.getElementById("swapDefaultLabel").textContent = `Default: ${defaultName}`;
-    document.getElementById("swapInput").value = currentName === defaultName ? "" : currentName;
+    const options = [defaultName, ...(EXERCISE_ALTERNATIVES[slotId] || [])];
+    const optWrap = document.getElementById("swapOptionsList");
+    optWrap.innerHTML = "";
+    options.forEach(opt=>{
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "swap-option-btn" + (opt === currentName ? " active" : "");
+      btn.textContent = opt === defaultName ? `${opt} (default)` : opt;
+      btn.addEventListener("click", ()=> pickSwapOption(slotId, defaultName, opt));
+      optWrap.appendChild(btn);
+    });
+    document.getElementById("swapInput").value = options.includes(currentName) ? "" : currentName;
     document.getElementById("swapModal").hidden = false;
   }
   document.getElementById("swapClose").addEventListener("click", ()=>{
@@ -3295,19 +3398,12 @@
   });
   document.getElementById("swapSaveBtn").addEventListener("click", ()=>{
     const val = document.getElementById("swapInput").value.trim();
-    if(val) state.overrides[swapSlotId] = val;
-    else delete state.overrides[swapSlotId];
+    if(!val){ showToast("Enter a custom name, or tap an option above"); return; }
+    state.overrides[swapSlotId] = val;
     saveState();
     document.getElementById("swapModal").hidden = true;
     renderDayDetail();
-    showToast(val ? "Exercise swapped" : "Reset to default");
-  });
-  document.getElementById("swapResetBtn").addEventListener("click", ()=>{
-    delete state.overrides[swapSlotId];
-    saveState();
-    document.getElementById("swapModal").hidden = true;
-    renderDayDetail();
-    showToast("Reset to default");
+    showToast("Exercise swapped");
   });
 
   document.getElementById("recoveryBlockClose").addEventListener("click", ()=>{

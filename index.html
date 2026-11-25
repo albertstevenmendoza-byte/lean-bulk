@@ -135,6 +135,16 @@
   .history-ex-row{ display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:5px 0; }
   .history-ex-row .her-name{ flex:1; min-width:0; color: var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .history-ex-row .her-sets{ font-family: var(--font-mono); font-size:12px; color: var(--muted); text-align:right; flex:0 1 auto; min-width:0; max-width:55%; }
+  .weekly-summary{ font-size:13.5px; color: var(--text-dim); padding:2px 2px 14px; }
+  .weekly-row{ display:flex; align-items:center; gap:10px; }
+  .weekly-row .weekly-check{ flex:0 0 auto; width:18px; height:18px; accent-color: var(--accent); }
+  .weekly-row .weekly-check-spacer{ flex:0 0 auto; width:18px; }
+  .weekly-status{ font-family: var(--font-mono); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; flex:0 0 auto; }
+  .weekly-status.done{ color: var(--good, #2ecc71); }
+  .weekly-status.missed{ color: var(--accent); }
+  .weekly-footer{ margin-top:14px; }
+  .resting-chip{ color: #e67e22; border-color: #e67e22; }
+  .recovery-msg{ font-size:14px; line-height:1.5; color: var(--text); padding: 4px 2px 18px; }
 
   .chart-canvas{ width:100%; height:120px; display:block; }
 
@@ -380,8 +390,8 @@
        side-by-side multitasking this device is actually built for. */
     #view-lifts.active{ display:flex; align-items:flex-start; gap:28px; }
     #view-lifts.active #dayListWrap{ flex:0 0 300px; display:block !important; }
-    #view-lifts.active #dayDetailWrap, #view-lifts.active #gymModeWrap, #view-lifts.active #historyWrap{ flex:1; min-width:0; }
-    #view-lifts.active:not(:has(#dayDetailWrap:not([hidden]), #gymModeWrap:not([hidden]), #historyWrap:not([hidden]))) .lifts-placeholder{
+    #view-lifts.active #dayDetailWrap, #view-lifts.active #gymModeWrap, #view-lifts.active #historyWrap, #view-lifts.active #weeklyWrap{ flex:1; min-width:0; }
+    #view-lifts.active:not(:has(#dayDetailWrap:not([hidden]), #gymModeWrap:not([hidden]), #historyWrap:not([hidden]), #weeklyWrap:not([hidden]))) .lifts-placeholder{
       display:flex; flex:1; min-width:0; min-height:360px; align-items:center; justify-content:center;
       color: var(--muted); font-size:14.5px; text-align:center; padding:20px;
     }
@@ -595,6 +605,7 @@
         <div class="card-header">
           <span>Training days</span>
           <div class="card-header-actions">
+            <button class="btn-secondary small" id="weeklyToggleBtn">This week</button>
             <button class="btn-secondary small" id="mixDaysToggleBtn">Mix days</button>
             <button class="btn-secondary small" id="historyToggleBtn">History</button>
           </div>
@@ -609,6 +620,20 @@
         <span class="gym-title">History</span>
       </div>
       <div id="historyList"></div>
+    </div>
+
+    <div id="weeklyWrap" hidden>
+      <div class="gym-header">
+        <button class="back-btn" id="weeklyBackBtn" aria-label="Back">←</button>
+        <span class="gym-title">This week</span>
+      </div>
+      <div class="card">
+        <div class="weekly-summary" id="weeklyMissedCount"></div>
+        <div id="weeklyList"></div>
+        <div class="weekly-footer">
+          <button class="btn-primary" id="startCatchupBtn" style="width:100%;">Start catch-up workout</button>
+        </div>
+      </div>
     </div>
 
     <div id="dayDetailWrap" hidden>
@@ -862,6 +887,17 @@
     </div>
     <button class="btn-primary" id="swapSaveBtn">Save</button>
     <button class="btn-secondary" id="swapResetBtn" style="width:100%; margin-top:10px;">Reset to default</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="recoveryBlockModal" hidden>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Still recovering</span>
+      <button class="icon-btn" id="recoveryBlockClose" aria-label="Close">✕</button>
+    </div>
+    <p class="recovery-msg" id="recoveryBlockMessage"></p>
+    <button class="btn-primary" id="recoveryBlockOkBtn" style="width:100%;">OK</button>
   </div>
 </div>
 
@@ -1287,50 +1323,63 @@
   // upper chest, traps) without overlapping the power days' heavy singles.
   const PROGRAM = [
     { id: "upper-power", name: "Upper Power", exercises: [
-      { id: "up-bench", name: "Incline Barbell Press", sets: 4, repRange: [3,5] },
-      { id: "up-row", name: "Supinated Barbell Row", sets: 4, repRange: [3,5] },
-      { id: "up-ohp", name: "Machine Shoulder Press", sets: 3, repRange: [5,6] },
-      { id: "up-pullup", name: "Neutral-Grip Pull-Up", sets: 3, repRange: [5,6] },
-      { id: "up-tricep", name: "Dip", sets: 3, repRange: [6,8] },
-      { id: "up-curl", name: "Preacher Curl", sets: 2, repRange: [6,8] },
-      { id: "up-lateral", name: "Lateral Raise", sets: 4, repRange: [12,15] },
-      { id: "up-shrug", name: "Shrugs", sets: 3, repRange: [10,15] }
+      { id: "up-bench", name: "Incline Barbell Press", sets: 4, repRange: [3,5], muscle: "chest" },
+      { id: "up-row", name: "Supinated Barbell Row", sets: 4, repRange: [3,5], muscle: "back" },
+      { id: "up-ohp", name: "Machine Shoulder Press", sets: 3, repRange: [5,6], muscle: "shoulders" },
+      { id: "up-pullup", name: "Neutral-Grip Pull-Up", sets: 3, repRange: [5,6], muscle: "back" },
+      { id: "up-tricep", name: "Dip", sets: 3, repRange: [6,8], muscle: "triceps" },
+      { id: "up-curl", name: "Preacher Curl", sets: 2, repRange: [6,8], muscle: "biceps" },
+      { id: "up-lateral", name: "Lateral Raise", sets: 4, repRange: [12,15], muscle: "shoulders" },
+      { id: "up-shrug", name: "Shrugs", sets: 3, repRange: [10,15], muscle: "traps" }
     ]},
     { id: "lower-power", name: "Lower Power", exercises: [
-      { id: "lp-squat", name: "Leg Press", sets: 4, repRange: [3,5] },
-      { id: "lp-rdl", name: "Conventional Deadlift", sets: 3, repRange: [4,6] },
-      { id: "lp-legpress", name: "Belt Squat", sets: 3, repRange: [6,8] },
-      { id: "lp-calf", name: "Leg Press Calf Raise", sets: 4, repRange: [6,8] },
-      { id: "lp-crunch", name: "Cable Crunch", sets: 4, repRange: [12,15] }
+      { id: "lp-squat", name: "Leg Press", sets: 4, repRange: [3,5], muscle: "quads" },
+      { id: "lp-rdl", name: "Conventional Deadlift", sets: 3, repRange: [4,6], muscle: "hamstrings" },
+      { id: "lp-legpress", name: "Belt Squat", sets: 3, repRange: [6,8], muscle: "quads" },
+      { id: "lp-calf", name: "Leg Press Calf Raise", sets: 4, repRange: [6,8], muscle: "calves" },
+      { id: "lp-crunch", name: "Cable Crunch", sets: 4, repRange: [12,15], muscle: "abs" }
     ]},
     { id: "push-hyper", name: "Push Hypertrophy", exercises: [
-      { id: "ph-inclinedb", name: "Incline DB Press", sets: 4, repRange: [8,12] },
-      { id: "ph-chestpress", name: "Flat Bench DB Press", sets: 3, repRange: [10,15] },
-      { id: "ph-shoulderpress", name: "Seated DB Shoulder Press", sets: 3, repRange: [8,12] },
-      { id: "ph-lateral", name: "Cable Lateral Raise", sets: 5, repRange: [12,15] },
-      { id: "ph-pushdown", name: "Reverse-Grip Pushdown", sets: 3, repRange: [10,15] },
-      { id: "ph-ohtricep", name: "DB Overhead Extension", sets: 2, repRange: [10,15] },
-      { id: "ph-abs", name: "Hanging Leg Raise", sets: 3, repRange: [8,12] }
+      { id: "ph-inclinedb", name: "Incline DB Press", sets: 4, repRange: [8,12], muscle: "chest" },
+      { id: "ph-chestpress", name: "Flat Bench DB Press", sets: 3, repRange: [10,15], muscle: "chest" },
+      { id: "ph-shoulderpress", name: "Seated DB Shoulder Press", sets: 3, repRange: [8,12], muscle: "shoulders" },
+      { id: "ph-lateral", name: "Cable Lateral Raise", sets: 5, repRange: [12,15], muscle: "shoulders" },
+      { id: "ph-pushdown", name: "Reverse-Grip Pushdown", sets: 3, repRange: [10,15], muscle: "triceps" },
+      { id: "ph-ohtricep", name: "DB Overhead Extension", sets: 2, repRange: [10,15], muscle: "triceps" },
+      { id: "ph-abs", name: "Hanging Leg Raise", sets: 3, repRange: [8,12], muscle: "abs" }
     ]},
     { id: "pull-hyper", name: "Pull Hypertrophy", exercises: [
-      { id: "pl-lat", name: "Pull-Up", sets: 4, repRange: [8,12] },
-      { id: "pl-pulldown", name: "Chin-Up", sets: 4, repRange: [10,12] },
-      { id: "pl-row", name: "Chest-Supported Row", sets: 3, repRange: [10,12] },
-      { id: "pl-facepull", name: "Shrugs", sets: 3, repRange: [12,15] },
-      { id: "pl-curl", name: "DB / Cable Curl", sets: 3, repRange: [10,12] },
-      { id: "pl-hammer", name: "Rope Hammer Curl", sets: 2, repRange: [10,12] },
-      { id: "pl-reardelt", name: "Rear Delt Fly", sets: 2, repRange: [12,15] }
+      { id: "pl-lat", name: "Pull-Up", sets: 4, repRange: [8,12], muscle: "back" },
+      { id: "pl-pulldown", name: "Chin-Up", sets: 4, repRange: [10,12], muscle: "back" },
+      { id: "pl-row", name: "Chest-Supported Row", sets: 3, repRange: [10,12], muscle: "back" },
+      { id: "pl-facepull", name: "Shrugs", sets: 3, repRange: [12,15], muscle: "traps" },
+      { id: "pl-curl", name: "DB / Cable Curl", sets: 3, repRange: [10,12], muscle: "biceps" },
+      { id: "pl-hammer", name: "Rope Hammer Curl", sets: 2, repRange: [10,12], muscle: "biceps" },
+      { id: "pl-reardelt", name: "Rear Delt Fly", sets: 2, repRange: [12,15], muscle: "shoulders" }
     ]},
     { id: "legs-hyper", name: "Legs Hypertrophy", exercises: [
-      { id: "lg-frontsquat", name: "Back Squat", sets: 3, repRange: [8,10] },
-      { id: "lg-legcurl", name: "Leg Curl", sets: 3, repRange: [10,12] },
-      { id: "lg-lunge", name: "Step-Up", sets: 3, repRange: [10,12] },
-      { id: "lg-legext", name: "Leg Extension", sets: 2, repRange: [12,15] },
-      { id: "lg-calf", name: "Seated Calf Raise", sets: 3, repRange: [10,15] },
-      { id: "lg-lateral", name: "DB Lateral Raise", sets: 4, repRange: [12,15] },
-      { id: "lg-hangingleg", name: "Hanging Leg Raise", sets: 4, repRange: [10,15] }
+      { id: "lg-frontsquat", name: "Back Squat", sets: 3, repRange: [8,10], muscle: "quads" },
+      { id: "lg-legcurl", name: "Leg Curl", sets: 3, repRange: [10,12], muscle: "hamstrings" },
+      { id: "lg-lunge", name: "Step-Up", sets: 3, repRange: [10,12], muscle: "quads" },
+      { id: "lg-legext", name: "Leg Extension", sets: 2, repRange: [12,15], muscle: "quads" },
+      { id: "lg-calf", name: "Seated Calf Raise", sets: 3, repRange: [10,15], muscle: "calves" },
+      { id: "lg-lateral", name: "DB Lateral Raise", sets: 4, repRange: [12,15], muscle: "shoulders" },
+      { id: "lg-hangingleg", name: "Hanging Leg Raise", sets: 4, repRange: [10,15], muscle: "abs" }
     ]}
   ];
+
+  // Recovery enforcement: 48h is the most widely cited evidence-based
+  // guideline (ACSM/NSCA) for resting a muscle group between hard sessions;
+  // literature (e.g. Stronger By Science's review of back-to-back training
+  // studies) shows real tolerance ranges roughly 24-72h depending on volume
+  // and proximity to failure, so 48h is used here as the single reasonable
+  // default rather than a per-exercise/per-intensity model.
+  const RECOVERY_HOURS = 48;
+  const MUSCLE_LABELS = {
+    chest: "Chest", back: "Back", shoulders: "Shoulders", triceps: "Triceps",
+    biceps: "Biceps", traps: "Traps", quads: "Quads", hamstrings: "Hamstrings",
+    calves: "Calves", abs: "Abs/core"
+  };
 
   const todayISO = () => {
     const d = new Date();
@@ -2111,6 +2160,58 @@
     return getExerciseLogs(name).find(e=> e.date === todayISO()) || null;
   }
   function getDay(dayId){ return PROGRAM.find(d=> d.id === dayId); }
+
+  // ---------- Muscle recovery enforcement ----------
+  // Looks up the fixed muscle tag for a program exercise by its CURRENT
+  // display name (so a swapped-in override still resolves to its slot's
+  // muscle group). Custom extras added via extraExercises have no slot and
+  // return null, which means they're simply exempt from the recovery check.
+  function getExerciseMuscle(exerciseName){
+    for(const day of PROGRAM){
+      for(const ex of day.exercises){
+        if((state.overrides[ex.id] || ex.name) === exerciseName) return ex.muscle || null;
+      }
+    }
+    return null;
+  }
+  // Finds the most recent set timestamp logged for ANY exercise sharing the
+  // given muscle, looking only at entries from before today (today's own
+  // session never blocks itself, even across several exercises for the same
+  // muscle — that's normal same-day programming, not inadequate recovery).
+  function getMuscleLastTrained(muscle){
+    const today = todayISO();
+    let best = null;
+    Object.keys(state.workouts).forEach(name=>{
+      if(getExerciseMuscle(name) !== muscle) return;
+      state.workouts[name].forEach(entry=>{
+        if(!entry.sets.length || entry.date === today) return;
+        // Older entries logged before this feature existed have no
+        // timestamp; estimate them at local noon of their logged date.
+        const ts = entry.lastSetAt || new Date(`${entry.date}T12:00:00`).getTime();
+        if(!best || ts > best.ts) best = { ts, exerciseName: name };
+      });
+    });
+    return best;
+  }
+  // Returns null when the exercise is clear to start, or a block descriptor
+  // when its muscle group is still inside the recovery window.
+  function checkRecoveryBlock(exerciseName){
+    const muscle = getExerciseMuscle(exerciseName);
+    if(!muscle) return null;
+    const last = getMuscleLastTrained(muscle);
+    if(!last) return null;
+    const hoursAgo = (Date.now() - last.ts) / 3600000;
+    if(hoursAgo >= RECOVERY_HOURS) return null;
+    return { muscle, hoursAgo, lastExercise: last.exerciseName, hoursLeft: RECOVERY_HOURS - hoursAgo };
+  }
+  function showRecoveryBlockModal(block){
+    const label = MUSCLE_LABELS[block.muscle] || block.muscle;
+    const hoursAgo = Math.max(0, Math.round(block.hoursAgo));
+    const hoursLeft = Math.max(1, Math.ceil(block.hoursLeft));
+    document.getElementById("recoveryBlockMessage").textContent =
+      `${label} was trained ${hoursAgo}h ago (${block.lastExercise}). This app enforces a ${RECOVERY_HOURS}h recovery window per muscle group, so it's not ready yet — try again in about ${hoursLeft}h.`;
+    document.getElementById("recoveryBlockModal").hidden = false;
+  }
   // Every exercise for a day: its program slots (with target sets/rep range)
   // plus any custom extras the user added, which log freely with no target.
   // During a cut, recovery capacity drops with calories available, so we
@@ -2151,6 +2252,72 @@
     renderDayDetail();
   }
 
+  // Flattens every program exercise (post-override, post-extras) across all
+  // training days into one deduped list, tagging each with which day(s) it
+  // belongs to — the basis for the "this week" tracker and catch-up builder.
+  function getAllProgramExercisesFlat(){
+    const map = new Map();
+    PROGRAM.forEach(day=>{
+      getDayExercises(day.id).forEach(ex=>{
+        if(map.has(ex.name)) map.get(ex.name).days.push(day.name);
+        else map.set(ex.name, { ...ex, days: [day.name] });
+      });
+    });
+    return [...map.values()];
+  }
+  function wasLoggedThisWeek(name){
+    const weekStart = isoDateOffset(todayISO(), -6);
+    const weekEnd = todayISO();
+    return getExerciseLogs(name).some(e=> e.sets.length && e.date >= weekStart && e.date <= weekEnd);
+  }
+  function renderWeeklyCheckin(){
+    const wrap = document.getElementById("weeklyList");
+    wrap.innerHTML = "";
+    const all = getAllProgramExercisesFlat();
+    const missed = all.filter(ex=> !wasLoggedThisWeek(ex.name));
+    document.getElementById("weeklyMissedCount").textContent = missed.length
+      ? `${missed.length} exercise${missed.length===1?"":"s"} missed this week — check the ones to catch up on.`
+      : "Everything's been hit in the last 7 days 🎉";
+    document.getElementById("startCatchupBtn").disabled = !missed.length;
+    if(!all.length){
+      wrap.innerHTML = `<div class="empty-hint">No exercises in your program yet.</div>`;
+      return;
+    }
+    all.forEach(ex=>{
+      const done = wasLoggedThisWeek(ex.name);
+      const row = document.createElement("div");
+      row.className = "exercise-row weekly-row";
+      row.innerHTML = `
+        ${done ? `<span class="weekly-check-spacer"></span>` : `<input type="checkbox" class="weekly-check" data-name="${ex.name}">`}
+        <span class="exercise-row-name">${ex.name}</span>
+        <span class="exercise-row-meta tabular">${ex.days.join(", ")}</span>
+        <span class="weekly-status ${done?"done":"missed"}">${done?"✓ done":"missed"}</span>
+      `;
+      wrap.appendChild(row);
+    });
+  }
+  function openWeeklyCheckin(){
+    document.getElementById("dayListWrap").hidden = true;
+    document.getElementById("weeklyWrap").hidden = false;
+    renderWeeklyCheckin();
+  }
+  function closeWeeklyCheckin(){
+    document.getElementById("dayListWrap").hidden = false;
+    document.getElementById("weeklyWrap").hidden = true;
+    renderDayList();
+  }
+  function startCatchupWorkout(){
+    const checked = [...document.querySelectorAll(".weekly-check:checked")].map(cb=> cb.dataset.name);
+    if(!checked.length){ showToast("Select at least one missed exercise"); return; }
+    const all = getAllProgramExercisesFlat();
+    mixedDayExercises = all.filter(ex=> checked.includes(ex.name));
+    mixedDayLabel = "Catch-up workout";
+    activeDayId = null;
+    document.getElementById("weeklyWrap").hidden = true;
+    document.getElementById("dayDetailWrap").hidden = false;
+    document.getElementById("dayDetailName").textContent = mixedDayLabel;
+    renderDayDetail();
+  }
   function buildSessionHistory(){
     const byDate = {};
     Object.keys(state.workouts).forEach(name=>{
@@ -2242,9 +2409,13 @@
       const status = today ? `${today.sets.length} set${today.sets.length===1?"":"s"} today` : (last ? `last: ${last.sets.length} set${last.sets.length===1?"":"s"}` : "no data");
       const meta = target ? `${target} · ${status}` : status;
       const swapBtn = ex.slotId ? `<button class="icon-btn swap-btn" aria-label="Swap exercise">⇄</button>` : "";
-      row.innerHTML = `<span class="exercise-row-name">${ex.name}${cutTrim ? ` <span class="cut-chip">cut</span>` : ""}</span><span class="exercise-row-meta tabular">${meta}</span>${swapBtn}<span class="chevron">›</span>`;
+      const recoveryBlock = checkRecoveryBlock(ex.name);
+      const restingChip = recoveryBlock ? ` <span class="cut-chip resting-chip">resting</span>` : "";
+      row.innerHTML = `<span class="exercise-row-name">${ex.name}${cutTrim ? ` <span class="cut-chip">cut</span>` : ""}${restingChip}</span><span class="exercise-row-meta tabular">${meta}</span>${swapBtn}<span class="chevron">›</span>`;
       row.addEventListener("click", (e)=>{
         if(e.target.closest(".swap-btn")) return;
+        const block = checkRecoveryBlock(ex.name);
+        if(block){ showRecoveryBlockModal(block); return; }
         openGymMode(ex.name, ex.repRange, ex.sets, ex.baseSets);
       });
       if(ex.slotId){
@@ -2458,6 +2629,7 @@
     let entry = state.workouts[currentExercise].find(e=> e.date === today);
     if(!entry){ entry = { date: today, sets: [] }; state.workouts[currentExercise].push(entry); }
     entry.sets.push({ weight, reps });
+    entry.lastSetAt = Date.now();
 
     const progress = getGoalProgress(currentExercise);
     const alreadyCelebratedToday = state.goalCelebrations[currentExercise] === today;
@@ -2580,6 +2752,7 @@
     if(currentExercise) renderGymMode();
     else if(activeDayId || mixedDayExercises) renderDayDetail();
     else if(!document.getElementById("historyWrap").hidden) renderHistory();
+    else if(!document.getElementById("weeklyWrap").hidden) renderWeeklyCheckin();
     else renderDayList();
   }
 
@@ -2726,6 +2899,9 @@
     selA.value = PROGRAM[0].id;
     selB.value = PROGRAM[1].id;
   }
+  document.getElementById("weeklyToggleBtn").addEventListener("click", openWeeklyCheckin);
+  document.getElementById("weeklyBackBtn").addEventListener("click", closeWeeklyCheckin);
+  document.getElementById("startCatchupBtn").addEventListener("click", startCatchupWorkout);
   document.getElementById("mixDaysToggleBtn").addEventListener("click", ()=>{
     populateMixDaySelects();
     document.getElementById("mixDaysModal").hidden = false;
@@ -3132,6 +3308,16 @@
     document.getElementById("swapModal").hidden = true;
     renderDayDetail();
     showToast("Reset to default");
+  });
+
+  document.getElementById("recoveryBlockClose").addEventListener("click", ()=>{
+    document.getElementById("recoveryBlockModal").hidden = true;
+  });
+  document.getElementById("recoveryBlockOkBtn").addEventListener("click", ()=>{
+    document.getElementById("recoveryBlockModal").hidden = true;
+  });
+  document.getElementById("recoveryBlockModal").addEventListener("click", e=>{
+    if(e.target.id === "recoveryBlockModal") document.getElementById("recoveryBlockModal").hidden = true;
   });
 
   // ---------- Export backup ----------

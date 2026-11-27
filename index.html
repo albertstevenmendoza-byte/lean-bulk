@@ -148,6 +148,16 @@
   .swap-option-btn{ text-align:left; padding:11px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text); font-size:14px; }
   .swap-option-btn.active{ border-color: var(--accent); background: var(--surface-2); font-weight:700; }
   .recovery-msg{ font-size:14px; line-height:1.5; color: var(--text); padding: 4px 2px 18px; }
+  .comp-food-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--border); }
+  .comp-food-row:first-child{ border-top:none; }
+  .comp-food-name{ flex:1; min-width:140px; }
+  .comp-food-pct{ width:64px; flex:0 0 auto; }
+  .comp-food-match{ flex-basis:100%; font-size:12px; color: var(--muted); }
+  .comp-food-match.matched{ color: var(--good, #2ecc71); }
+  .comp-food-match.unmatched{ color: var(--accent); }
+  .comp-food-summary{ font-size:13.5px; color: var(--text-dim); padding:12px 2px 0; }
+  .comp-food-summary.balanced{ color: var(--good, #2ecc71); font-weight:700; }
+  .comp-food-summary.unbalanced{ color: var(--accent); font-weight:700; }
 
   .chart-canvas{ width:100%; height:120px; display:block; }
 
@@ -532,7 +542,12 @@
   <!-- ===================== FOOD ===================== -->
   <section id="view-food" class="view">
     <div class="card">
-      <div class="card-header">Log food</div>
+      <div class="card-header">
+        <span>Log food</span>
+        <div class="card-header-actions">
+          <button class="btn-secondary small" id="compFoodBtn" type="button">% composition</button>
+        </div>
+      </div>
       <div class="builder-search-wrap">
         <input type="text" id="smartFoodInput" class="field-input" placeholder="What did you eat?" autocomplete="off">
         <div class="builder-results" id="smartResults" hidden></div>
@@ -909,6 +924,27 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="compFoodModal" hidden>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Log by % composition</span>
+      <button class="icon-btn" id="compFoodClose" aria-label="Close">✕</button>
+    </div>
+    <div class="settings-field">
+      <label>Food name</label>
+      <input type="text" id="compFoodName" class="field-input" placeholder="e.g. Berry Powerful Smoothie">
+    </div>
+    <div class="settings-field">
+      <label>Total calories</label>
+      <input type="number" inputmode="numeric" id="compFoodKcal" class="field-input tabular" placeholder="kcal">
+    </div>
+    <div id="compFoodRows"></div>
+    <button class="btn-secondary" id="compFoodAddRowBtn" style="width:100%; margin-top:4px;">+ Add component</button>
+    <div class="comp-food-summary" id="compFoodSummary"></div>
+    <button class="btn-primary" id="compFoodLogBtn" style="width:100%; margin-top:14px;">Log this food</button>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -966,7 +1002,8 @@
     "Fruit Smoothie": [60, 1, 14, 0.3], "Protein Bar": [370, 30, 35, 12], "California Roll (sushi)": [150, 5, 28, 2],
     "Instant Ramen (cooked)": [188, 4.5, 27, 7], "Beef Taco (hard shell)": [226, 11, 19, 12],
     "Potato Chips": [536, 7, 53, 35], "Pretzels": [380, 10, 79, 3], "Glazed Donut": [452, 5, 51, 25],
-    "Blueberry Muffin": [377, 6, 48, 18], "Caesar Salad (with chicken)": [150, 10, 6, 10]
+    "Blueberry Muffin": [377, 6, 48, 18], "Caesar Salad (with chicken)": [150, 10, 6, 10],
+    "Starbucks Spinach Feta Egg White Wrap": [176, 12.7, 20.6, 4.8]
   };
   const FOOD_DATABASE = {};
   Object.keys(FOOD_DB_100G).forEach(name=>{
@@ -2119,6 +2156,101 @@
     renderFoodView();
     renderDashboard();
   }
+
+  // ---------- Log by % composition ----------
+  // For foods where you only know the ingredient list and a total calorie
+  // count (a restaurant item, a recipe without exact grams) rather than
+  // precise per-ingredient weights. Each component gets a % share of the
+  // total calories instead of a gram amount; macros for a matched component
+  // are estimated from that food's own kcal/protein/carbs/fat RATIO (so the
+  // split works without needing to know the component's actual weight at
+  // all) — an unmatched component just contributes plain calories, no macros.
+  function findFoodMatch(name){
+    const q = name.trim().toLowerCase();
+    if(!q) return null;
+    const keys = Object.keys(FOOD_DATABASE);
+    const exact = keys.find(k=> k.toLowerCase() === q);
+    if(exact) return exact;
+    const partial = keys.find(k=> k.toLowerCase().includes(q) || q.includes(k.toLowerCase()));
+    return partial || null;
+  }
+  function updateCompFoodSummary(){
+    const rows = [...document.querySelectorAll(".comp-food-row")];
+    const total = rows.reduce((s,r)=> s + (parseFloat(r.querySelector(".comp-food-pct").value) || 0), 0);
+    const summary = document.getElementById("compFoodSummary");
+    const rounded = Math.round(total*10)/10;
+    if(Math.abs(total-100) < 0.5){
+      summary.textContent = `${rounded}% assigned — ready to log`;
+      summary.className = "comp-food-summary balanced";
+    } else {
+      summary.textContent = `${rounded}% assigned — needs to total 100%`;
+      summary.className = "comp-food-summary unbalanced";
+    }
+  }
+  function addCompFoodRow(name, pct){
+    const wrap = document.getElementById("compFoodRows");
+    const row = document.createElement("div");
+    row.className = "comp-food-row";
+    row.innerHTML = `
+      <input type="text" class="field-input comp-food-name" placeholder="Component name" value="${name||""}">
+      <input type="number" inputmode="decimal" class="field-input tabular comp-food-pct" placeholder="%" value="${pct||""}">
+      <button class="icon-btn comp-food-remove" aria-label="Remove">✕</button>
+      <div class="comp-food-match"></div>
+    `;
+    wrap.appendChild(row);
+    const nameInput = row.querySelector(".comp-food-name");
+    const matchDiv = row.querySelector(".comp-food-match");
+    function updateMatch(){
+      const match = findFoodMatch(nameInput.value);
+      if(!nameInput.value.trim()){ matchDiv.textContent = ""; matchDiv.className = "comp-food-match"; }
+      else if(match){ matchDiv.textContent = `matched: ${match}`; matchDiv.className = "comp-food-match matched"; }
+      else { matchDiv.textContent = "no match — logged as plain calories"; matchDiv.className = "comp-food-match unmatched"; }
+    }
+    nameInput.addEventListener("input", updateMatch);
+    row.querySelector(".comp-food-pct").addEventListener("input", updateCompFoodSummary);
+    row.querySelector(".comp-food-remove").addEventListener("click", ()=>{ row.remove(); updateCompFoodSummary(); });
+    updateMatch();
+  }
+  function openCompFoodModal(){
+    document.getElementById("compFoodName").value = "";
+    document.getElementById("compFoodKcal").value = "";
+    document.getElementById("compFoodRows").innerHTML = "";
+    addCompFoodRow("", "");
+    addCompFoodRow("", "");
+    updateCompFoodSummary();
+    document.getElementById("compFoodModal").hidden = false;
+  }
+  function logCompFood(){
+    const name = document.getElementById("compFoodName").value.trim() || "Custom food";
+    const totalKcal = parseFloat(document.getElementById("compFoodKcal").value);
+    if(Number.isNaN(totalKcal) || totalKcal <= 0){ showToast("Enter total calories"); return; }
+    const rows = [...document.querySelectorAll(".comp-food-row")]
+      .map(r=> ({ name: r.querySelector(".comp-food-name").value.trim(), pct: parseFloat(r.querySelector(".comp-food-pct").value) || 0 }))
+      .filter(r=> r.name && r.pct > 0);
+    if(!rows.length){ showToast("Add at least one component"); return; }
+    const totalPct = rows.reduce((s,r)=> s+r.pct, 0);
+    if(Math.abs(totalPct-100) >= 0.5){ showToast(`Percentages must total 100% (currently ${Math.round(totalPct*10)/10}%)`); return; }
+
+    let protein=0, carbs=0, fat=0;
+    rows.forEach(r=>{
+      const kcalShare = totalKcal * (r.pct/100);
+      const match = findFoodMatch(r.name);
+      if(match){
+        const food = FOOD_DATABASE[match]; // per-gram ratios
+        if(food.kcal > 0){
+          protein += kcalShare * (food.protein/food.kcal);
+          carbs += kcalShare * (food.carbs/food.kcal);
+          fat += kcalShare * (food.fat/food.kcal);
+        }
+      }
+    });
+    addMeal({ name, kcal: Math.round(totalKcal), protein: Math.round(protein*10)/10, carbs: Math.round(carbs*10)/10, fat: Math.round(fat*10)/10 });
+    showToast(`Logged ${name}`);
+    document.getElementById("compFoodModal").hidden = true;
+    renderFoodView();
+    renderDashboard();
+  }
+
   function getRecentFoods(){
     const seen = new Set();
     const recent = [];
@@ -2882,6 +3014,18 @@
     if(btn) removeBuilderIngredient(parseInt(btn.dataset.removeIng, 10));
   });
   document.getElementById("builderLogBtn").addEventListener("click", logBuilderMeal);
+  document.getElementById("compFoodBtn").addEventListener("click", openCompFoodModal);
+  document.getElementById("compFoodClose").addEventListener("click", ()=>{
+    document.getElementById("compFoodModal").hidden = true;
+  });
+  document.getElementById("compFoodModal").addEventListener("click", e=>{
+    if(e.target.id === "compFoodModal") document.getElementById("compFoodModal").hidden = true;
+  });
+  document.getElementById("compFoodAddRowBtn").addEventListener("click", ()=>{
+    addCompFoodRow("", "");
+    updateCompFoodSummary();
+  });
+  document.getElementById("compFoodLogBtn").addEventListener("click", logCompFood);
   document.addEventListener("click", e=>{
     const wrap = document.getElementById("smartResults");
     if(!wrap.hidden && !e.target.closest(".builder-search-wrap")) wrap.hidden = true;

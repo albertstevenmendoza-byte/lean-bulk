@@ -158,6 +158,9 @@
   .comp-food-summary{ font-size:13.5px; color: var(--text-dim); padding:12px 2px 0; }
   .comp-food-summary.balanced{ color: var(--good, #2ecc71); font-weight:700; }
   .comp-food-summary.unbalanced{ color: var(--accent); font-weight:700; }
+  .comp-food-variation-btn{ display:block; width:100%; text-align:left; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text); font-size:13.5px; margin-top:8px; }
+  .comp-food-variation-title{ font-weight:700; }
+  .comp-food-variation-detail{ display:block; font-size:12px; color: var(--muted); margin-top:2px; }
 
   .chart-canvas{ width:100%; height:120px; display:block; }
 
@@ -940,6 +943,8 @@
     </div>
     <div id="compFoodRows"></div>
     <button class="btn-secondary" id="compFoodAddRowBtn" style="width:100%; margin-top:4px;">+ Add component</button>
+    <button class="btn-secondary" id="compFoodGenerateBtn" style="width:100%; margin-top:8px;">Generate variations from calories</button>
+    <div id="compFoodVariations"></div>
     <div class="comp-food-summary" id="compFoodSummary"></div>
     <button class="btn-primary" id="compFoodLogBtn" style="width:100%; margin-top:14px;">Log this food</button>
   </div>
@@ -2208,13 +2213,85 @@
     }
     nameInput.addEventListener("input", updateMatch);
     row.querySelector(".comp-food-pct").addEventListener("input", updateCompFoodSummary);
-    row.querySelector(".comp-food-remove").addEventListener("click", ()=>{ row.remove(); updateCompFoodSummary(); });
+    row.querySelector(".comp-food-remove").addEventListener("click", ()=>{
+      row.remove();
+      updateCompFoodSummary();
+      document.getElementById("compFoodVariations").innerHTML = "";
+    });
     updateMatch();
+  }
+  // Given rows of {name, pct} and a total-calorie target, estimates the
+  // resulting macro totals -- shared by the variation previews and the
+  // actual log action so both use identical math.
+  function estimateCompFoodMacros(rows, totalKcal){
+    let protein=0, carbs=0, fat=0;
+    rows.forEach(r=>{
+      const kcalShare = totalKcal * (r.pct/100);
+      const match = findFoodMatch(r.name);
+      if(match){
+        const food = FOOD_DATABASE[match]; // per-gram ratios
+        if(food.kcal > 0){
+          protein += kcalShare * (food.protein/food.kcal);
+          carbs += kcalShare * (food.carbs/food.kcal);
+          fat += kcalShare * (food.fat/food.kcal);
+        }
+      }
+    });
+    return { protein, carbs, fat };
+  }
+  // Builds a normalized percentage split across n components for a given
+  // "shape" -- there's no single correct split when only the total calories
+  // and component names are known (an underdetermined system), so this
+  // offers a few reasonable candidates rather than forcing one guess.
+  function computeVariationWeights(n, shape){
+    let weights;
+    if(shape === "even") weights = Array(n).fill(1);
+    else if(shape === "front") weights = Array.from({length:n}, (_,i)=> n-i); // first-listed gets the biggest share
+    else weights = Array.from({length:n}, (_,i)=> i+1); // last-listed gets the biggest share
+    const sum = weights.reduce((a,b)=>a+b, 0);
+    const pcts = weights.map(w=> Math.round((w/sum)*1000)/10); // 1 decimal
+    // Nudge the last entry so the set sums to exactly 100 despite rounding.
+    const diff = Math.round((100 - pcts.reduce((a,b)=>a+b,0)) * 10) / 10;
+    pcts[pcts.length-1] = Math.round((pcts[pcts.length-1] + diff) * 10) / 10;
+    return pcts;
+  }
+  function generateCompFoodVariations(){
+    const totalKcal = parseFloat(document.getElementById("compFoodKcal").value);
+    if(Number.isNaN(totalKcal) || totalKcal <= 0){ showToast("Enter total calories first"); return; }
+    const names = [...document.querySelectorAll(".comp-food-name")].map(i=> i.value.trim());
+    const nonEmpty = names.filter(n=> n);
+    if(nonEmpty.length < 1){ showToast("Add at least one component name first"); return; }
+    const shapes = [
+      { key: "even", label: "Even split", detail: "Every component gets an equal share of the calories." },
+      { key: "front", label: "Weighted toward first listed", detail: "Earlier components (usually the base/bulk ingredients) get the bigger share." },
+      { key: "back", label: "Weighted toward last listed", detail: "Later components (usually toppings/extras) get the bigger share." }
+    ];
+    const wrap = document.getElementById("compFoodVariations");
+    wrap.innerHTML = "";
+    shapes.forEach(shape=>{
+      const pcts = computeVariationWeights(names.length, shape.key);
+      const rows = names.map((name,i)=> ({ name, pct: pcts[i] }));
+      const macros = estimateCompFoodMacros(rows, totalKcal);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "comp-food-variation-btn";
+      btn.innerHTML = `<span class="comp-food-variation-title">${shape.label} — ${pcts.join("/")}%</span>` +
+        `<span class="comp-food-variation-detail">${shape.detail}</span>` +
+        `<span class="comp-food-variation-detail">Est. ${Math.round(macros.protein)}P · ${Math.round(macros.carbs)}C · ${Math.round(macros.fat)}F</span>`;
+      btn.addEventListener("click", ()=>{
+        const pctInputs = [...document.querySelectorAll(".comp-food-pct")];
+        pctInputs.forEach((input,i)=>{ if(names[i]) input.value = pcts[i]; });
+        updateCompFoodSummary();
+        showToast(`Applied "${shape.label}"`);
+      });
+      wrap.appendChild(btn);
+    });
   }
   function openCompFoodModal(){
     document.getElementById("compFoodName").value = "";
     document.getElementById("compFoodKcal").value = "";
     document.getElementById("compFoodRows").innerHTML = "";
+    document.getElementById("compFoodVariations").innerHTML = "";
     addCompFoodRow("", "");
     addCompFoodRow("", "");
     updateCompFoodSummary();
@@ -2231,19 +2308,7 @@
     const totalPct = rows.reduce((s,r)=> s+r.pct, 0);
     if(Math.abs(totalPct-100) >= 0.5){ showToast(`Percentages must total 100% (currently ${Math.round(totalPct*10)/10}%)`); return; }
 
-    let protein=0, carbs=0, fat=0;
-    rows.forEach(r=>{
-      const kcalShare = totalKcal * (r.pct/100);
-      const match = findFoodMatch(r.name);
-      if(match){
-        const food = FOOD_DATABASE[match]; // per-gram ratios
-        if(food.kcal > 0){
-          protein += kcalShare * (food.protein/food.kcal);
-          carbs += kcalShare * (food.carbs/food.kcal);
-          fat += kcalShare * (food.fat/food.kcal);
-        }
-      }
-    });
+    const { protein, carbs, fat } = estimateCompFoodMacros(rows, totalKcal);
     addMeal({ name, kcal: Math.round(totalKcal), protein: Math.round(protein*10)/10, carbs: Math.round(carbs*10)/10, fat: Math.round(fat*10)/10 });
     showToast(`Logged ${name}`);
     document.getElementById("compFoodModal").hidden = true;
@@ -3024,7 +3089,9 @@
   document.getElementById("compFoodAddRowBtn").addEventListener("click", ()=>{
     addCompFoodRow("", "");
     updateCompFoodSummary();
+    document.getElementById("compFoodVariations").innerHTML = "";
   });
+  document.getElementById("compFoodGenerateBtn").addEventListener("click", generateCompFoodVariations);
   document.getElementById("compFoodLogBtn").addEventListener("click", logCompFood);
   document.addEventListener("click", e=>{
     const wrap = document.getElementById("smartResults");
